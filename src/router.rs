@@ -1,6 +1,5 @@
 use crate::{Endpoint, Request, Responder};
 use hyper::{Method, StatusCode};
-use route_recognizer::Match;
 use std::collections::HashMap;
 
 type Recogniser<S> = route_recognizer::Router<Box<dyn Endpoint<S> + Send + Sync + 'static>>;

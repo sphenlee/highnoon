@@ -60,7 +60,7 @@ where
                     let routes = Arc::clone(&routes);
                     async move {
                         let ep = routes.lookup(req.method(), req.uri().path());
-                        let req = Request::new(Arc::clone(&state), req);
+                        let req = Request::new(state, req);
                         ep.call(req).await.map(|resp| resp.into_inner())
                     }
                 }))
