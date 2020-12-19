@@ -7,13 +7,12 @@
 ///     Response::ok().json(MyData{...})
 /// }
 /// ```
-
 use crate::Result;
-use hyper::{StatusCode, Body};
+use hyper::header::{HeaderName, HeaderValue};
+use hyper::{Body, StatusCode};
 use hyperx::header::Header;
-use std::fmt::Display;
-use hyper::header::{HeaderValue, HeaderName};
 use serde::Serialize;
+use std::fmt::Display;
 
 pub struct Response {
     inner: hyper::Response<Body>,
@@ -26,7 +25,7 @@ impl Response {
             inner: hyper::Response::builder()
                 .status(StatusCode::OK)
                 .body(Body::empty())
-                .expect("ok status with empty body should never fail")
+                .expect("ok status with empty body should never fail"),
         }
     }
 
@@ -36,7 +35,7 @@ impl Response {
             inner: hyper::Response::builder()
                 .status(s)
                 .body(Body::empty())
-                .expect("status with empty body should never fail")
+                .expect("status with empty body should never fail"),
         }
     }
 
@@ -97,7 +96,7 @@ impl Response {
 impl From<hyper::Response<Body>> for Response {
     fn from(hyper_response: hyper::Response<Body>) -> Self {
         Self {
-            inner: hyper_response
+            inner: hyper_response,
         }
     }
 }

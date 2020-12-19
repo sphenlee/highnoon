@@ -1,7 +1,7 @@
-use hyper::{StatusCode, Body};
 use crate::response::Response;
-use serde::Serialize;
 use crate::Result;
+use hyper::{Body, StatusCode};
+use serde::Serialize;
 
 /// This trait is implemented for all the common types you can return from an endpoint
 ///
@@ -39,12 +39,9 @@ use crate::Result;
 /// }
 /// ```
 
-
 pub trait Responder {
     fn into_response(self) -> Result<Response>;
 }
-
-
 
 impl Responder for StatusCode {
     fn into_response(self) -> Result<Response> {

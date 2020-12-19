@@ -1,20 +1,19 @@
 use thiserror::Error;
 
-pub use hyper::{StatusCode, Method};
-
+pub use hyper::{Method, StatusCode};
 
 pub mod app;
+pub mod endpoint;
+pub mod request;
 pub mod responder;
 pub mod response;
-pub mod request;
-pub mod endpoint;
 pub mod router;
 
 pub use app::App;
 pub use endpoint::Endpoint;
-pub use response::Response;
-pub use responder::{Responder, Json};
 pub use request::Request;
+pub use responder::{Json, Responder};
+pub use response::Response;
 
 #[derive(Error, Debug)]
 pub enum Error {

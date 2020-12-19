@@ -1,21 +1,18 @@
 use crate::Result;
 use hyper;
-use std::sync::Arc;
-use hyperx::header::{TypedHeaders, StandardHeader};
 use hyper::body::Bytes;
 use hyper::Body;
+use hyperx::header::{StandardHeader, TypedHeaders};
+use std::sync::Arc;
 
 pub struct Request<S: Sync + 'static> {
     state: Arc<S>,
-    inner: hyper::Request<Body>
+    inner: hyper::Request<Body>,
 }
 
 impl<S: Sync + 'static> Request<S> {
     pub(crate) fn new(state: Arc<S>, inner: hyper::Request<Body>) -> Self {
-        Self {
-            state,
-            inner
-        }
+        Self { state, inner }
     }
 
     pub fn state(&self) -> &S {
