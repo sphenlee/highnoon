@@ -25,11 +25,27 @@ impl<'a, 'p, S> Route<'a, 'p, S>
 where
     S: Send + Sync + 'static,
 {
-    pub fn get(self, ep: impl Endpoint<S> + Send + Sync + 'static) -> Self {
+    pub fn method(self, method: Method, ep: impl Endpoint<S> + Send + Sync + 'static) -> Self {
         let routes = Arc::get_mut(&mut self.app.routes)
             .expect("cannot add routes once serve has been called");
-        routes.add(Method::GET, self.path, ep);
+        routes.add(method, self.path, ep);
         self
+    }
+
+    pub fn get(self, ep: impl Endpoint<S> + Send + Sync + 'static) -> Self {
+        self.method(Method::GET, ep)
+    }
+
+    pub fn post(self, ep: impl Endpoint<S> + Send + Sync + 'static) -> Self {
+        self.method(Method::POST, ep)
+    }
+
+    pub fn put(self, ep: impl Endpoint<S> + Send + Sync + 'static) -> Self {
+        self.method(Method::PUT, ep)
+    }
+
+    pub fn delete(self, ep: impl Endpoint<S> + Send + Sync + 'static) -> Self {
+        self.method(Method::DELETE, ep)
     }
 }
 
@@ -59,9 +75,9 @@ where
                     let state = Arc::clone(&state);
                     let routes = Arc::clone(&routes);
                     async move {
-                        let ep = routes.lookup(req.method(), req.uri().path());
-                        let req = Request::new(state, req);
-                        ep.call(req).await.map(|resp| resp.into_inner())
+                        let target = routes.lookup(req.method(), req.uri().path());
+                        let req = Request::new(state, req, target.params);
+                        target.ep.call(req).await.map(|resp| resp.into_inner())
                     }
                 }))
             }

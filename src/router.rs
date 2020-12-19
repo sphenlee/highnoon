@@ -1,11 +1,21 @@
 use crate::{Endpoint, Request, Responder};
 use hyper::{Method, StatusCode};
 use std::collections::HashMap;
+use route_recognizer::{Params};
 
-type Recogniser<S> = route_recognizer::Router<Box<dyn Endpoint<S> + Send + Sync + 'static>>;
+type DynEndpoint<S> = dyn Endpoint<S> + Send + Sync + 'static;
 
-pub struct Router<S> {
+type Recogniser<S> = route_recognizer::Router<Box<DynEndpoint<S>>>;
+
+pub(crate) struct Router<S> {
     methods: HashMap<Method, Recogniser<S>>,
+}
+
+pub(crate) struct RouteTarget<'a, S>
+    where S: Send + Sync + 'static
+{
+    pub(crate) ep: &'a DynEndpoint<S>,
+    pub(crate) params: Params
 }
 
 impl<S> Router<S>
@@ -34,24 +44,33 @@ where
         &self,
         method: &Method,
         path: &str,
-    ) -> &(dyn Endpoint<S> + Send + Sync + 'static) {
+    ) -> RouteTarget<S> {
         match self.methods.get(method) {
-            None => &method_not_allowed,
+            None => RouteTarget {
+                ep: &method_not_allowed,
+                params: Params::new(),
+            },
             Some(recog) => match recog.recognize(path) {
-                Ok(route_match) => {
-                    let ep = *route_match.handler();
-                    &**ep
+                Ok(match_) => {
+                    RouteTarget {
+                        ep: &***match_.handler(),
+                        params: match_.params().clone() // TODO - avoid this clone?
+                    }
                 }
-                Err(_) => &not_found,
+                Err(_) => RouteTarget {
+                    ep: &not_found,
+                    params: Params::new()
+                }
+
             },
         }
     }
 }
 
-fn method_not_allowed<S: Sync + 'static>(_: Request<S>) -> impl Responder {
+async fn method_not_allowed<S: Sync + 'static>(_: Request<S>) -> impl Responder {
     StatusCode::METHOD_NOT_ALLOWED
 }
 
-fn not_found<S: Sync + 'static>(_: Request<S>) -> impl Responder {
+async fn not_found<S: Sync + 'static>(_: Request<S>) -> impl Responder {
     StatusCode::NOT_FOUND
 }

@@ -67,6 +67,12 @@ impl Responder for &[u8] {
     }
 }
 
+impl Responder for Vec<u8> {
+    fn into_response(self) -> Result<Response> {
+        Ok(Response::ok().body(self))
+    }
+}
+
 impl<R: Responder> Responder for (StatusCode, R) {
     fn into_response(self) -> Result<Response> {
         let mut resp = self.1.into_response()?;
