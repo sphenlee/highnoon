@@ -1,9 +1,8 @@
 use crate::Result;
 use bytes::buf::ext::BufExt;
-use hyper;
+use headers::{Header, HeaderMapExt};
 use hyper::header::HeaderValue;
 use hyper::{Body, HeaderMap};
-use hyperx::header::{StandardHeader, TypedHeaders};
 use route_recognizer::Params;
 use serde::de::DeserializeOwned;
 use std::io::Read;
@@ -36,9 +35,8 @@ impl<S: Sync + 'static> Request<S> {
         self.inner.uri()
     }
 
-    pub fn header<T: StandardHeader>(&self) -> Result<T> {
-        let header = self.inner.headers().decode()?;
-        Ok(header)
+    pub fn header<T: Header>(&self) -> Option<T> {
+        self.inner.headers().typed_get()
     }
 
     pub fn headers(&self) -> &HeaderMap<HeaderValue> {
@@ -51,6 +49,10 @@ impl<S: Sync + 'static> Request<S> {
 
     pub async fn body_mut(&mut self) -> Result<&mut Body> {
         Ok(self.inner.body_mut())
+    }
+
+    pub(crate) fn into_body(self) -> Body {
+        self.inner.into_body()
     }
 
     pub async fn reader(&mut self) -> Result<impl Read + '_> {

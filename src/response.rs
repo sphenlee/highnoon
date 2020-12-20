@@ -8,11 +8,10 @@
 /// }
 /// ```
 use crate::Result;
+use headers::{Header, HeaderMapExt};
 use hyper::header::{HeaderName, HeaderValue};
 use hyper::{Body, StatusCode};
-use hyperx::header::Header;
 use serde::Serialize;
-use std::fmt::Display;
 
 pub struct Response {
     inner: hyper::Response<Body>,
@@ -53,7 +52,7 @@ impl Response {
     /// Set the body of the response to a JSON payload
     pub fn json(mut self, body: impl Serialize) -> Result<Self> {
         let data = serde_json::to_vec(&body)?;
-        self.set_header(hyperx::header::ContentType::json());
+        self.set_header(headers::ContentType::json());
         *self.inner.body_mut() = Body::from(data);
         Ok(self)
     }
@@ -61,24 +60,19 @@ impl Response {
     /// Set the body of the response to form data
     pub fn form(mut self, body: impl Serialize) -> Result<Self> {
         let form = serde_urlencoded::to_string(body)?;
-        self.set_header(hyperx::header::ContentType::form_url_encoded());
+        self.set_header(headers::ContentType::form_url_encoded());
         *self.inner.body_mut() = Body::from(form);
         Ok(self)
     }
 
     /// Set a header (from the `hyperx` typed headers)
-    pub fn header<H: Header + Display>(mut self, h: H) -> Self {
+    pub fn header<H: Header>(mut self, h: H) -> Self {
         self.set_header(h);
         self
     }
 
-    pub fn set_header<H: Header + Display>(&mut self, h: H) {
-        self.inner.headers_mut().insert(
-            H::header_name(),
-            h.to_string()
-                .parse::<HeaderValue>()
-                .expect("invalid header"),
-        );
+    pub fn set_header<H: Header>(&mut self, h: H) {
+        self.inner.headers_mut().typed_insert(h);
     }
 
     /// Set a raw header (from the `http` crate)

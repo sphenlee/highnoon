@@ -1,4 +1,4 @@
-use highnoon::{App, Json, Request, Result};
+use highnoon::{App, Json, Message, Request, Result};
 use hyper::StatusCode;
 use serde_derive::Serialize;
 use tokio;
@@ -36,6 +36,18 @@ async fn main() -> Result<()> {
     });
 
     app.at("/query").get(echo_stuff);
+
+    app.at("/ws").ws(|mut ws| async move {
+        println!("running the websocket");
+
+        while let Some(msg) = ws.recv().await? {
+            println!("message: {}", msg);
+            let reply = Message::text("Hello from Highnoon!");
+            ws.send(reply).await?;
+        }
+
+        Ok(())
+    });
 
     app.listen("0.0.0.0:8888".parse().unwrap()).await?;
     Ok(())
