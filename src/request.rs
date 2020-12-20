@@ -1,10 +1,13 @@
 use crate::Result;
 use hyper;
-use hyper::body::Bytes;
-use hyper::Body;
+use hyper::{Body, HeaderMap};
 use hyperx::header::{StandardHeader, TypedHeaders};
 use std::sync::Arc;
 use route_recognizer::Params;
+use hyper::header::HeaderValue;
+use serde::de::DeserializeOwned;
+use std::io::Read;
+use bytes::buf::ext::BufExt;
 
 pub struct Request<S: Sync + 'static> {
     state: Arc<S>,
@@ -34,12 +37,31 @@ impl<S: Sync + 'static> Request<S> {
         Ok(header)
     }
 
+    pub fn headers(&self) -> &HeaderMap<HeaderValue> {
+        self.inner.headers()
+    }
+
     pub fn param(&self, param: &str) -> Option<&str> {
         self.params.find(param)
     }
 
-    pub async fn bytes(&mut self) -> Result<Bytes> {
+    pub async fn body_mut(&mut self) -> Result<&mut Body> {
+        Ok(self.inner.body_mut())
+    }
+
+    pub async fn reader(&mut self) -> Result<impl Read + '_> {
+        let buffer = hyper::body::aggregate(self.inner.body_mut()).await?;
+        Ok(buffer.reader())
+    }
+
+    pub async fn bytes(&mut self) -> Result<Vec<u8>> {
         let bytes = hyper::body::to_bytes(self.inner.body_mut()).await?;
-        Ok(bytes)
+        Ok(bytes.to_vec())
+    }
+
+    pub async fn json<T: DeserializeOwned>(&mut self) -> Result<T> {
+        let buffer = hyper::body::aggregate(self.inner.body_mut()).await?;
+        let json = serde_json::from_reader(buffer.reader())?;
+        Ok(json)
     }
 }

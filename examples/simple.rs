@@ -1,6 +1,7 @@
 use highnoon::{App, Result, Request, Json};
 use tokio;
 use serde_derive::Serialize;
+use hyper::StatusCode;
 
 #[derive(Serialize)]
 struct Sample {
@@ -34,6 +35,24 @@ async fn main() -> Result<()> {
         })
     });
 
+    app.at("/query").get(echo_stuff);
+
     app.listen("0.0.0.0:8888".parse().unwrap()).await?;
     Ok(())
+}
+
+async fn echo_stuff(mut req: Request<()>) -> Result<StatusCode> {
+    let uri = req.uri();
+    println!("URI: {}", uri);
+
+    let method = req.method();
+    println!("method: {}", method);
+
+    let headers = req.headers();
+    println!("header: {:#?}", headers);
+
+    let body = req.bytes().await?;
+    println!("body: {}", String::from_utf8_lossy(&body));
+
+    Ok(StatusCode::OK)
 }
