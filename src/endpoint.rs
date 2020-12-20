@@ -14,7 +14,7 @@ where
 impl<S, F, Fut, R> Endpoint<S> for F
 where
     F: Send + Sync + 'static + Fn(Request<S>) -> Fut,
-    Fut: Future<Output=R> + Send + 'static,
+    Fut: Future<Output = R> + Send + 'static,
     R: Responder + 'static,
     S: Send + Sync + 'static,
 {

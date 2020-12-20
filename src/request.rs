@@ -1,13 +1,13 @@
 use crate::Result;
+use bytes::buf::ext::BufExt;
 use hyper;
+use hyper::header::HeaderValue;
 use hyper::{Body, HeaderMap};
 use hyperx::header::{StandardHeader, TypedHeaders};
-use std::sync::Arc;
 use route_recognizer::Params;
-use hyper::header::HeaderValue;
 use serde::de::DeserializeOwned;
 use std::io::Read;
-use bytes::buf::ext::BufExt;
+use std::sync::Arc;
 
 pub struct Request<S: Sync + 'static> {
     state: Arc<S>,
@@ -17,7 +17,11 @@ pub struct Request<S: Sync + 'static> {
 
 impl<S: Sync + 'static> Request<S> {
     pub(crate) fn new(state: Arc<S>, inner: hyper::Request<Body>, params: Params) -> Self {
-        Self { state, inner, params }
+        Self {
+            state,
+            inner,
+            params,
+        }
     }
 
     pub fn state(&self) -> &S {

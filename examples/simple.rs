@@ -1,7 +1,7 @@
-use highnoon::{App, Result, Request, Json};
-use tokio;
-use serde_derive::Serialize;
+use highnoon::{App, Json, Request, Result};
 use hyper::StatusCode;
+use serde_derive::Serialize;
+use tokio;
 
 #[derive(Serialize)]
 struct Sample {
@@ -14,7 +14,7 @@ async fn main() -> Result<()> {
     let mut app = App::new(());
 
     app.at("/hello")
-        .get(|_req| async { "Hello world!\n\n"})
+        .get(|_req| async { "Hello world!\n\n" })
         .post(|mut req: Request<()>| async move {
             let bytes = req.bytes().await?;
             Ok(bytes.to_vec())
@@ -29,7 +29,7 @@ async fn main() -> Result<()> {
     });
 
     app.at("/json").get(|_req| async {
-        Json(Sample{
+        Json(Sample {
             data: "hello".to_owned(),
             value: 1234,
         })

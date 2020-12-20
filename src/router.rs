@@ -1,7 +1,7 @@
 use crate::{Endpoint, Request, Responder};
 use hyper::{Method, StatusCode};
+use route_recognizer::Params;
 use std::collections::HashMap;
-use route_recognizer::{Params};
 
 type DynEndpoint<S> = dyn Endpoint<S> + Send + Sync + 'static;
 
@@ -12,10 +12,11 @@ pub(crate) struct Router<S> {
 }
 
 pub(crate) struct RouteTarget<'a, S>
-    where S: Send + Sync + 'static
+where
+    S: Send + Sync + 'static,
 {
     pub(crate) ep: &'a DynEndpoint<S>,
-    pub(crate) params: Params
+    pub(crate) params: Params,
 }
 
 impl<S> Router<S>
@@ -40,11 +41,7 @@ where
             .add(path, Box::new(ep))
     }
 
-    pub(crate) fn lookup(
-        &self,
-        method: &Method,
-        path: &str,
-    ) -> RouteTarget<S> {
+    pub(crate) fn lookup(&self, method: &Method, path: &str) -> RouteTarget<S> {
         match self.methods.get(method) {
             None => RouteTarget {
                 ep: &method_not_allowed,
@@ -54,14 +51,13 @@ where
                 Ok(match_) => {
                     RouteTarget {
                         ep: &***match_.handler(),
-                        params: match_.params().clone() // TODO - avoid this clone?
+                        params: match_.params().clone(), // TODO - avoid this clone?
                     }
                 }
                 Err(_) => RouteTarget {
                     ep: &not_found,
-                    params: Params::new()
-                }
-
+                    params: Params::new(),
+                },
             },
         }
     }
