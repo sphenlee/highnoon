@@ -11,6 +11,8 @@ struct Sample {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::init();
+
     let mut app = App::new(());
 
     app.at("/hello")

@@ -93,7 +93,7 @@ impl<R: Responder> Responder for Option<R> {
 
 /// A Wrapper to return a JSON payload. This can be wrapped over any `serde::Serialize` type.
 /// ```
-/// use crate::{Request, Responder, Json};
+/// use highnoon::{Request, Responder, Json};
 /// fn returns_json(_: Request<()>) -> impl Responder {
 ///     Json(vec!["an", "array"])
 /// }

@@ -4,6 +4,7 @@ use futures_util::{SinkExt, TryStreamExt};
 use headers;
 use hyper::upgrade::Upgraded;
 use hyper::StatusCode;
+use log::trace;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -55,6 +56,8 @@ where
     H: Send + Sync + 'static + Fn(WebSocket) -> F,
     F: Future<Output = Result<()>> + Send + 'static,
 {
+    // TODO - check various headers
+
     let key = match req.header::<headers::SecWebsocketKey>() {
         Some(header) => header,
         None => return Ok(Response::status(StatusCode::BAD_REQUEST)),
@@ -65,7 +68,7 @@ where
         .header(headers::Connection::upgrade())
         .header(headers::SecWebsocketAccept::from(key));
 
-    println!("upgrading to websocket!");
+    trace!("upgrading connection to websocket");
 
     tokio::spawn(async move {
         let upgraded = req
@@ -74,8 +77,6 @@ where
             .await
             .expect("websocket upgrade failed - TODO report this error");
 
-        println!("starting the websocket protocol");
-
         let ws = WebSocketStream::from_raw_socket(
             upgraded,
             tokio_tungstenite::tungstenite::protocol::Role::Server,
@@ -83,7 +84,6 @@ where
         )
         .await;
 
-        println!("calling ws handler");
         let _ = (handler)(WebSocket { inner: ws }).await;
     });
 

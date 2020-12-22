@@ -1,8 +1,7 @@
 /// A wrapper over `hyper::Response` with better ergonomics
 ///
 /// ```
-/// use hightide::{Responder, Response};
-/// use tide::Request;
+/// use highnoon::{Request, Responder, Response};
 /// fn example(_: Request<()>) -> impl Responder {
 ///     Response::ok().json(MyData{...})
 /// }
@@ -65,7 +64,7 @@ impl Response {
         Ok(self)
     }
 
-    /// Set a header (from the `hyperx` typed headers)
+    /// Set a header (from the `headers` crate)
     pub fn header<H: Header>(mut self, h: H) -> Self {
         self.set_header(h);
         self
@@ -81,7 +80,7 @@ impl Response {
         self
     }
 
-    /// Consume this response and return the inner `tide::Response`
+    /// Consume this response and return the inner `hyper::Response`
     pub fn into_inner(self) -> hyper::Response<hyper::Body> {
         self.inner
     }
