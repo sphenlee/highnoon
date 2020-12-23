@@ -9,6 +9,8 @@ use std::convert::Infallible;
 use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::path::PathBuf;
+use crate::static_files::StaticFiles;
 
 pub struct App<S> {
     state: Arc<S>,
@@ -34,6 +36,13 @@ where
         self
     }
 
+    pub fn all(self, ep: impl Endpoint<S> + Send + Sync + 'static) -> Self {
+        let routes = Arc::get_mut(&mut self.app.routes)
+            .expect("cannot add routes once serve has been called");
+        routes.add_all(self.path, ep);
+        self
+    }
+
     pub fn get(self, ep: impl Endpoint<S> + Send + Sync + 'static) -> Self {
         self.method(Method::GET, ep)
     }
@@ -49,6 +58,15 @@ where
     pub fn delete(self, ep: impl Endpoint<S> + Send + Sync + 'static) -> Self {
         self.method(Method::DELETE, ep)
     }
+
+    pub fn static_files(self, root: impl Into<PathBuf>) -> Self {
+        let prefix = self.path.to_owned(); // TODO - borrow issue here
+        self.method(Method::GET, StaticFiles::new(root, prefix))
+    }
+
+    /*pub fn mount(self, _app: App<S>) -> Self {
+        self
+    }*/
 
     pub fn ws<H, F>(self, handler: H)
     where

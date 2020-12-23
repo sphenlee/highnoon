@@ -9,23 +9,25 @@ type Recogniser<S> = route_recognizer::Router<Box<DynEndpoint<S>>>;
 
 pub(crate) struct Router<S> {
     methods: HashMap<Method, Recogniser<S>>,
+    all: Recogniser<S>,
 }
 
 pub(crate) struct RouteTarget<'a, S>
-where
-    S: Send + Sync + 'static,
+    where
+        S: Send + Sync + 'static,
 {
     pub(crate) ep: &'a DynEndpoint<S>,
     pub(crate) params: Params,
 }
 
 impl<S> Router<S>
-where
-    S: Send + Sync + 'static,
+    where
+        S: Send + Sync + 'static,
 {
     pub(crate) fn new() -> Self {
         Self {
             methods: HashMap::new(),
+            all: Recogniser::new(),
         }
     }
 
@@ -41,24 +43,39 @@ where
             .add(path, Box::new(ep))
     }
 
+    pub(crate) fn add_all(
+        &mut self,
+        path: &str,
+        ep: impl Endpoint<S> + Sync + Send + 'static,
+    ) {
+        self.all.add(path, Box::new(ep))
+    }
+
     pub(crate) fn lookup(&self, method: &Method, path: &str) -> RouteTarget<S> {
-        match self.methods.get(method) {
-            None => RouteTarget {
+        if let Some(match_) = self
+            .methods
+            .get(method)
+            .and_then(|recog| recog.recognize(path).ok())
+        {
+            RouteTarget {
+                ep: &***match_.handler(),
+                params: match_.params().clone(), // TODO - avoid this clone?
+            }
+        } else if let Some(match_) = self.all.recognize(path).ok() {
+            RouteTarget {
+                ep: &***match_.handler(),
+                params: match_.params().clone(), // TODO - avoid this clone?
+            }
+        } else if self.methods.iter().filter(|(k, _)| k != method).any(|(_, recog)| recog.recognize(path).is_ok()) {
+            RouteTarget {
                 ep: &method_not_allowed,
                 params: Params::new(),
-            },
-            Some(recog) => match recog.recognize(path) {
-                Ok(match_) => {
-                    RouteTarget {
-                        ep: &***match_.handler(),
-                        params: match_.params().clone(), // TODO - avoid this clone?
-                    }
-                }
-                Err(_) => RouteTarget {
-                    ep: &not_found,
-                    params: Params::new(),
-                },
-            },
+            }
+        } else {
+            RouteTarget {
+                ep: &not_found,
+                params: Params::new(),
+            }
         }
     }
 }

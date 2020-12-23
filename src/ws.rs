@@ -44,13 +44,13 @@ where
     async fn call(&self, req: Request<S>) -> Result<Response> {
         let handler = self.handler.clone();
 
-        let res = upgrade_connection(req, handler).await?;
+        let res = upgrade_connection(req, handler).await;
 
         Ok(res)
     }
 }
 
-async fn upgrade_connection<S, H, F>(req: Request<S>, handler: Arc<H>) -> Result<Response>
+async fn upgrade_connection<S, H, F>(req: Request<S>, handler: Arc<H>) -> Response
 where
     S: Send + Sync + 'static,
     H: Send + Sync + 'static + Fn(WebSocket) -> F,
@@ -58,9 +58,25 @@ where
 {
     // TODO - check various headers
 
+    if let Some(conn) = req.header::<headers::Connection>() {
+        if !conn.contains(hyper::header::UPGRADE) {
+            return Response::status(StatusCode::BAD_REQUEST)
+        }
+    } else {
+        return Response::status(StatusCode::BAD_REQUEST)
+    }
+
+    if let Some(upgrade) = req.header::<headers::Upgrade>() {
+        if upgrade != headers::Upgrade::websocket() {
+            return Response::status(StatusCode::BAD_REQUEST)
+        }
+    } else {
+        return Response::status(StatusCode::BAD_REQUEST)
+    }
+
     let key = match req.header::<headers::SecWebsocketKey>() {
         Some(header) => header,
-        None => return Ok(Response::status(StatusCode::BAD_REQUEST)),
+        None => return Response::status(StatusCode::BAD_REQUEST),
     };
 
     let res = Response::status(StatusCode::SWITCHING_PROTOCOLS)
@@ -87,7 +103,7 @@ where
         let _ = (handler)(WebSocket { inner: ws }).await;
     });
 
-    Ok(res)
+    res
 }
 
 pub struct WebSocket {

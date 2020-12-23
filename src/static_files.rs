@@ -1,0 +1,87 @@
+use crate::{Result, Request, Response, Endpoint};
+use std::path::{PathBuf, Component};
+use async_trait::async_trait;
+use log::{info, warn};
+use serde::export::PhantomData;
+use hyper::StatusCode;
+
+pub(crate) struct StaticFiles<S>
+where S: Send + Sync + 'static
+{
+    root: PathBuf,
+    prefix: PathBuf,
+    _phantom: PhantomData<S>
+}
+
+impl<S> StaticFiles<S>
+    where S: Send + Sync + 'static
+{
+    pub(crate) fn new(root: impl Into<PathBuf>, prefix: impl Into<PathBuf>) -> Self {
+        let mut prefix = prefix.into();
+        // remove the final wildcard path segment
+        prefix.pop();
+
+        Self {
+            root: root.into(),
+            prefix,
+            _phantom: PhantomData
+        }
+    }
+}
+
+#[async_trait]
+impl<S> Endpoint<S> for StaticFiles<S>
+    where S: Send + Sync + 'static
+{
+    async fn call(&self, req: Request<S>) -> Result<Response> {
+        let path = PathBuf::from(req.uri().path());
+
+        let mut target = self.root.clone();
+
+        for part in path.strip_prefix(&self.prefix)?.components() {
+            match part {
+                Component::Normal(component) => {
+                    target.push(component);
+                }
+                Component::Prefix(_) => {
+                    // Windows path prefixes - all are forbidden
+                    return Ok(Response::status(StatusCode::FORBIDDEN));
+                }
+                Component::RootDir => {
+                    // ignored for URLs
+                }
+                Component::CurDir => {
+                    // skip
+                }
+                Component::ParentDir => {
+                    target.pop();
+                }
+            }
+        }
+
+        info!("path is {:?}", path);
+        info!("target file is {:?}", target);
+
+        if !target.starts_with(&self.root) {
+            warn!("path tried to navigate out of the static files root dir");
+            return Ok(Response::status(StatusCode::FORBIDDEN));
+        }
+
+        if !target.is_file() {
+            // small race condition - if the file is deleted between
+            // here and where we open it then we're going to return a 500
+            // instead of 404
+            warn!("path isn't a file");
+            return Ok(Response::status(StatusCode::NOT_FOUND));
+        }
+
+        let reader = tokio::fs::File::open(&target).await?;
+
+        let mime = mime_guess::from_path(&target).first_or_text_plain();
+        info!("guessed mime: {}", mime);
+
+        Ok(Response::ok()
+            .header(headers::ContentType::from(mime))
+            .reader(reader))
+    }
+}

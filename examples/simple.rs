@@ -51,6 +51,8 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
+    app.at("/static/*").static_files("resources/");
+
     app.listen("0.0.0.0:8888".parse().unwrap()).await?;
     Ok(())
 }
