@@ -11,7 +11,8 @@ use headers::{Header, HeaderMapExt};
 use hyper::header::{HeaderName, HeaderValue};
 use hyper::{Body, StatusCode};
 use serde::Serialize;
-use tokio::io::{AsyncRead, reader_stream};
+use tokio::io::AsyncRead;
+use tokio_util::io::ReaderStream;
 
 pub struct Response {
     inner: hyper::Response<Body>,
@@ -51,7 +52,7 @@ impl Response {
 
     // Set the body to an AsyncRead object
     pub fn reader(mut self, r: impl AsyncRead + Send + 'static) -> Self {
-        let body = Body::wrap_stream(reader_stream(r));
+        let body = Body::wrap_stream(ReaderStream::new(r));
         *self.inner.body_mut() = body;
         self
     }

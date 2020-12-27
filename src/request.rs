@@ -1,8 +1,7 @@
 use crate::Result;
-use bytes::buf::ext::BufExt;
 use headers::{Header, HeaderMapExt};
 use hyper::header::HeaderValue;
-use hyper::{Body, HeaderMap};
+use hyper::{Body, HeaderMap, body::Buf};
 use route_recognizer::Params;
 use serde::de::DeserializeOwned;
 use std::io::Read;

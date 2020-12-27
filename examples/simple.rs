@@ -39,17 +39,17 @@ async fn main() -> Result<()> {
 
     app.at("/query").get(echo_stuff);
 
-    app.at("/ws").ws(|mut ws| async move {
-        println!("running the websocket");
-
-        while let Some(msg) = ws.recv().await? {
-            println!("message: {}", msg);
-            let reply = Message::text("Hello from Highnoon!");
-            ws.send(reply).await?;
-        }
-
-        Ok(())
-    });
+    // app.at("/ws").ws(|mut ws| async move {
+    //     println!("running the websocket");
+    //
+    //     while let Some(msg) = ws.recv().await? {
+    //         println!("message: {}", msg);
+    //         let reply = Message::text("Hello from Highnoon!");
+    //         ws.send(reply).await?;
+    //     }
+    //
+    //     Ok(())
+    // });
 
     app.at("/static/*").static_files("resources/");
 

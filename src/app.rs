@@ -1,16 +1,15 @@
 use crate::router::Router;
-use crate::ws::WebSocket;
+//use crate::ws::WebSocket;
 use crate::Endpoint;
 use crate::{Request, Result};
-use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method};
 use std::convert::Infallible;
-use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::path::PathBuf;
 use crate::static_files::StaticFiles;
+use hyper::server::conn::AddrStream;
 
 pub struct App<S> {
     state: Arc<S>,
@@ -68,13 +67,13 @@ where
         self
     }*/
 
-    pub fn ws<H, F>(self, handler: H)
-    where
-        H: Send + Sync + 'static + Fn(WebSocket) -> F,
-        F: Future<Output = Result<()>> + Send + 'static,
-    {
-        self.method(Method::GET, crate::ws::endpoint(handler));
-    }
+    // pub fn ws<H, F>(self, handler: H)
+    // where
+    //     H: Send + Sync + 'static + Fn(WebSocket) -> F,
+    //     F: Future<Output = Result<()>> + Send + 'static,
+    // {
+    //     self.method(Method::GET, crate::ws::endpoint(handler));
+    // }
 }
 
 impl<S> App<S>
