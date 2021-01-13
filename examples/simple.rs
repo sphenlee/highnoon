@@ -25,8 +25,8 @@ async fn main() -> Result<()> {
     app.at("/echo/:name").get(|req: Request<()>| async move {
         let p = req.param("name");
         match p {
-            None => "Hello anonymous\n\n".to_owned(),
-            Some(name) => format!("Hello to {}\n\n", name),
+            Err(_) => "Hello anonymous\n\n".to_owned(),
+            Ok(name) => format!("Hello to {}\n\n", name),
         }
     });
 
@@ -39,17 +39,17 @@ async fn main() -> Result<()> {
 
     app.at("/query").get(echo_stuff);
 
-    // app.at("/ws").ws(|mut ws| async move {
-    //     println!("running the websocket");
-    //
-    //     while let Some(msg) = ws.recv().await? {
-    //         println!("message: {}", msg);
-    //         let reply = Message::text("Hello from Highnoon!");
-    //         ws.send(reply).await?;
-    //     }
-    //
-    //     Ok(())
-    // });
+    app.at("/ws").ws(|mut ws| async move {
+        println!("running the websocket");
+
+        while let Some(msg) = ws.recv().await? {
+            println!("message: {}", msg);
+            let reply = Message::text("Hello from Highnoon!");
+            ws.send(reply).await?;
+        }
+
+        Ok(())
+    });
 
     app.at("/static/*").static_files("resources/");
 

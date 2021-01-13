@@ -14,6 +14,7 @@ use serde::Serialize;
 use tokio::io::AsyncRead;
 use tokio_util::io::ReaderStream;
 
+#[derive(Debug)]
 pub struct Response {
     inner: hyper::Response<Body>,
 }

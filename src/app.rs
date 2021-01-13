@@ -1,15 +1,16 @@
 use crate::router::Router;
-//use crate::ws::WebSocket;
-use crate::Endpoint;
+use crate::static_files::StaticFiles;
+use crate::ws::WebSocket;
+use crate::{Endpoint, Responder};
 use crate::{Request, Result};
+use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method};
 use std::convert::Infallible;
+use std::future::Future;
 use std::net::SocketAddr;
-use std::sync::Arc;
 use std::path::PathBuf;
-use crate::static_files::StaticFiles;
-use hyper::server::conn::AddrStream;
+use std::sync::Arc;
 
 pub struct App<S> {
     state: Arc<S>,
@@ -67,13 +68,13 @@ where
         self
     }*/
 
-    // pub fn ws<H, F>(self, handler: H)
-    // where
-    //     H: Send + Sync + 'static + Fn(WebSocket) -> F,
-    //     F: Future<Output = Result<()>> + Send + 'static,
-    // {
-    //     self.method(Method::GET, crate::ws::endpoint(handler));
-    // }
+    pub fn ws<H, F>(self, handler: H)
+    where
+        H: Send + Sync + 'static + Fn(WebSocket) -> F,
+        F: Future<Output = Result<()>> + Send + 'static,
+    {
+        self.method(Method::GET, crate::ws::endpoint(handler));
+    }
 }
 
 impl<S> App<S>
@@ -104,7 +105,13 @@ where
                     async move {
                         let target = routes.lookup(req.method(), req.uri().path());
                         let req = Request::new(state, req, target.params);
-                        target.ep.call(req).await.map(|resp| resp.into_inner())
+                        target
+                            .ep
+                            .call(req)
+                            .await
+                            .or_else(|err| err.into_response())
+                            .map(|resp| resp.into_inner())
+                            .map_err(|err| err.into_std())
                     }
                 }))
             }

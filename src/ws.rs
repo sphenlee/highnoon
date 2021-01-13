@@ -60,18 +60,18 @@ where
 
     if let Some(conn) = req.header::<headers::Connection>() {
         if !conn.contains(hyper::header::UPGRADE) {
-            return Response::status(StatusCode::BAD_REQUEST)
+            return Response::status(StatusCode::BAD_REQUEST);
         }
     } else {
-        return Response::status(StatusCode::BAD_REQUEST)
+        return Response::status(StatusCode::BAD_REQUEST);
     }
 
     if let Some(upgrade) = req.header::<headers::Upgrade>() {
         if upgrade != headers::Upgrade::websocket() {
-            return Response::status(StatusCode::BAD_REQUEST)
+            return Response::status(StatusCode::BAD_REQUEST);
         }
     } else {
-        return Response::status(StatusCode::BAD_REQUEST)
+        return Response::status(StatusCode::BAD_REQUEST);
     }
 
     let key = match req.header::<headers::SecWebsocketKey>() {
@@ -87,9 +87,7 @@ where
     trace!("upgrading connection to websocket");
 
     tokio::spawn(async move {
-        let upgraded = req
-            .into_body()
-            .on_upgrade()
+        let upgraded = hyper::upgrade::on(req.into_inner())
             .await
             .expect("websocket upgrade failed - TODO report this error");
 

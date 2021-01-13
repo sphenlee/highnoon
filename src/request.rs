@@ -1,7 +1,7 @@
 use crate::Result;
 use headers::{Header, HeaderMapExt};
 use hyper::header::HeaderValue;
-use hyper::{Body, HeaderMap, body::Buf};
+use hyper::{body::Buf, Body, HeaderMap};
 use route_recognizer::Params;
 use serde::de::DeserializeOwned;
 use std::io::Read;
@@ -42,16 +42,22 @@ impl<S: Sync + 'static> Request<S> {
         self.inner.headers()
     }
 
-    pub fn param(&self, param: &str) -> Option<&str> {
-        self.params.find(param)
+    pub fn param(&self, param: &str) -> Result<&str> {
+        self.params.find(param).ok_or_else(|| {
+            // TODO - clean this up
+            crate::error::Error::Internal(anyhow::Error::msg(format!(
+                "parameter {} not found",
+                param
+            )))
+        })
     }
 
     pub async fn body_mut(&mut self) -> Result<&mut Body> {
         Ok(self.inner.body_mut())
     }
 
-    pub(crate) fn into_body(self) -> Body {
-        self.inner.into_body()
+    pub(crate) fn into_inner(self) -> hyper::Request<Body> {
+        self.inner
     }
 
     pub async fn reader(&mut self) -> Result<impl Read + '_> {

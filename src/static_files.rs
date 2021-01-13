@@ -1,20 +1,22 @@
-use crate::{Result, Request, Response, Endpoint};
-use std::path::{PathBuf, Component};
+use crate::{Endpoint, Request, Response, Result};
 use async_trait::async_trait;
+use hyper::StatusCode;
 use log::{info, warn};
 use serde::export::PhantomData;
-use hyper::StatusCode;
+use std::path::{Component, PathBuf};
 
 pub(crate) struct StaticFiles<S>
-where S: Send + Sync + 'static
+where
+    S: Send + Sync + 'static,
 {
     root: PathBuf,
     prefix: PathBuf,
-    _phantom: PhantomData<S>
+    _phantom: PhantomData<S>,
 }
 
 impl<S> StaticFiles<S>
-    where S: Send + Sync + 'static
+where
+    S: Send + Sync + 'static,
 {
     pub(crate) fn new(root: impl Into<PathBuf>, prefix: impl Into<PathBuf>) -> Self {
         let mut prefix = prefix.into();
@@ -24,14 +26,15 @@ impl<S> StaticFiles<S>
         Self {
             root: root.into(),
             prefix,
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
 }
 
 #[async_trait]
 impl<S> Endpoint<S> for StaticFiles<S>
-    where S: Send + Sync + 'static
+where
+    S: Send + Sync + 'static,
 {
     async fn call(&self, req: Request<S>) -> Result<Response> {
         let path = PathBuf::from(req.uri().path());

@@ -13,16 +13,16 @@ pub(crate) struct Router<S> {
 }
 
 pub(crate) struct RouteTarget<'a, S>
-    where
-        S: Send + Sync + 'static,
+where
+    S: Send + Sync + 'static,
 {
     pub(crate) ep: &'a DynEndpoint<S>,
     pub(crate) params: Params,
 }
 
 impl<S> Router<S>
-    where
-        S: Send + Sync + 'static,
+where
+    S: Send + Sync + 'static,
 {
     pub(crate) fn new() -> Self {
         Self {
@@ -43,11 +43,7 @@ impl<S> Router<S>
             .add(path, Box::new(ep))
     }
 
-    pub(crate) fn add_all(
-        &mut self,
-        path: &str,
-        ep: impl Endpoint<S> + Sync + Send + 'static,
-    ) {
+    pub(crate) fn add_all(&mut self, path: &str, ep: impl Endpoint<S> + Sync + Send + 'static) {
         self.all.add(path, Box::new(ep))
     }
 
@@ -66,7 +62,12 @@ impl<S> Router<S>
                 ep: &***match_.handler(),
                 params: match_.params().clone(), // TODO - avoid this clone?
             }
-        } else if self.methods.iter().filter(|(k, _)| k != method).any(|(_, recog)| recog.recognize(path).is_ok()) {
+        } else if self
+            .methods
+            .iter()
+            .filter(|(k, _)| k != method)
+            .any(|(_, recog)| recog.recognize(path).is_ok())
+        {
             RouteTarget {
                 ep: &method_not_allowed,
                 params: Params::new(),
