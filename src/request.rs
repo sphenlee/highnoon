@@ -6,19 +6,22 @@ use route_recognizer::Params;
 use serde::de::DeserializeOwned;
 use std::io::Read;
 use std::sync::Arc;
+use std::net::SocketAddr;
 
 pub struct Request<S: Sync + 'static> {
     state: Arc<S>,
     params: Params,
     inner: hyper::Request<Body>,
+    remote_addr: SocketAddr,
 }
 
 impl<S: Sync + 'static> Request<S> {
-    pub(crate) fn new(state: Arc<S>, inner: hyper::Request<Body>, params: Params) -> Self {
+    pub(crate) fn new(state: Arc<S>, inner: hyper::Request<Body>, params: Params, remote_addr: SocketAddr) -> Self {
         Self {
             state,
             inner,
             params,
+            remote_addr,
         }
     }
 
@@ -74,5 +77,9 @@ impl<S: Sync + 'static> Request<S> {
         let buffer = hyper::body::aggregate(self.inner.body_mut()).await?;
         let json = serde_json::from_reader(buffer.reader())?;
         Ok(json)
+    }
+
+    pub fn remote_addr(&self) -> &SocketAddr {
+        &self.remote_addr
     }
 }

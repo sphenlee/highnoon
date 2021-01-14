@@ -51,7 +51,7 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
-    app.at("/static/*").static_files("resources/");
+    app.at("/static/*").static_files("examples/resources/");
 
     app.listen("0.0.0.0:8888".parse().unwrap()).await?;
     Ok(())
@@ -69,6 +69,8 @@ async fn echo_stuff(mut req: Request<()>) -> Result<StatusCode> {
 
     let body = req.bytes().await?;
     println!("body: {}", String::from_utf8_lossy(&body));
+
+    println!("remote addr: {}", req.remote_addr());
 
     Ok(StatusCode::OK)
 }

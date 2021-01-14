@@ -1,7 +1,7 @@
 use crate::{Endpoint, Request, Response, Result};
 use async_trait::async_trait;
 use hyper::StatusCode;
-use log::{info, warn};
+use log::{debug, warn};
 use serde::export::PhantomData;
 use std::path::{Component, PathBuf};
 
@@ -62,8 +62,7 @@ where
             }
         }
 
-        info!("path is {:?}", path);
-        info!("target file is {:?}", target);
+        debug!("path {:?} resolved to file {:?}", path, target);
 
         if !target.starts_with(&self.root) {
             warn!("path tried to navigate out of the static files root dir");
@@ -81,7 +80,7 @@ where
         let reader = tokio::fs::File::open(&target).await?;
 
         let mime = mime_guess::from_path(&target).first_or_text_plain();
-        info!("guessed mime: {}", mime);
+        debug!("guessed mime: {}", mime);
 
         Ok(Response::ok()
             .header(headers::ContentType::from(mime))

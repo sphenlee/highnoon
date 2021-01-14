@@ -11,6 +11,7 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
+use log::info;
 
 pub struct App<S> {
     state: Arc<S>,
@@ -95,16 +96,19 @@ where
     pub async fn listen(self, addr: SocketAddr) -> Result<()> {
         let server = hyper::Server::bind(&addr);
 
-        let make_svc = make_service_fn(|_: &AddrStream| {
+        let make_svc = make_service_fn(|addr_stream: &AddrStream| {
             let state = Arc::clone(&self.state);
             let routes = Arc::clone(&self.routes);
+            let addr = addr_stream.remote_addr();
+
             async move {
                 Ok::<_, Infallible>(service_fn(move |req: hyper::Request<Body>| {
                     let state = Arc::clone(&state);
                     let routes = Arc::clone(&routes);
+
                     async move {
                         let target = routes.lookup(req.method(), req.uri().path());
-                        let req = Request::new(state, req, target.params);
+                        let req = Request::new(state, req, target.params, addr.clone());
                         target
                             .ep
                             .call(req)
@@ -117,6 +121,7 @@ where
             }
         });
 
+        info!("server listening on {}", addr);
         server.serve(make_svc).await?;
         Ok(())
     }
