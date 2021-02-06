@@ -26,7 +26,7 @@ impl Responder for Error {
             Error::Internal(err) => {
                 log::error!("internal server error: {}", err);
                 Ok(Response::status(StatusCode::INTERNAL_SERVER_ERROR))
-            },
+            }
         }
     }
 }
@@ -34,7 +34,7 @@ impl Responder for Error {
 impl<E> From<E> for Error
 where
     //E: std::error::Error + Send + Sync + 'static,
-    E: Into<anyhow::Error>
+    E: Into<anyhow::Error>,
 {
     fn from(e: E) -> Self {
         //Error::Internal(anyhow::Error::new(e))
@@ -69,4 +69,3 @@ impl std::fmt::Display for Error {
         }
     }
 }
-

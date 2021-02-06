@@ -1,12 +1,12 @@
-use crate::{Result, Error, App};
+use crate::{App, Error, Result};
 use headers::{Header, HeaderMapExt};
 use hyper::header::HeaderValue;
 use hyper::{body::Buf, Body, HeaderMap};
 use route_recognizer::Params;
 use serde::de::DeserializeOwned;
 use std::io::Read;
-use std::sync::Arc;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 pub struct Request<S: Sync + 'static> {
     app: Arc<App<S>>,
@@ -16,7 +16,12 @@ pub struct Request<S: Sync + 'static> {
 }
 
 impl<S: Send + Sync + 'static> Request<S> {
-    pub(crate) fn new(app: Arc<App<S>>, inner: hyper::Request<Body>, params: Params, remote_addr: SocketAddr) -> Self {
+    pub(crate) fn new(
+        app: Arc<App<S>>,
+        inner: hyper::Request<Body>,
+        params: Params,
+        remote_addr: SocketAddr,
+    ) -> Self {
         Self {
             app,
             inner,
@@ -56,10 +61,7 @@ impl<S: Send + Sync + 'static> Request<S> {
     pub fn param(&self, param: &str) -> Result<&str> {
         self.params.find(param).ok_or_else(|| {
             // TODO - clean this up
-            Error::Internal(anyhow::Error::msg(format!(
-                "parameter {} not found",
-                param
-            )))
+            Error::Internal(anyhow::Error::msg(format!("parameter {} not found", param)))
         })
     }
 

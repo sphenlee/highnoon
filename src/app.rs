@@ -1,4 +1,4 @@
-use crate::router::{Router, RouteTarget};
+use crate::router::{RouteTarget, Router};
 use crate::static_files::StaticFiles;
 use crate::ws::WebSocket;
 use crate::{Endpoint, Responder};
@@ -6,11 +6,11 @@ use crate::{Request, Result};
 use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method};
+use log::info;
 use std::convert::Infallible;
 use std::future::Future;
 use std::path::PathBuf;
 use std::sync::Arc;
-use log::info;
 use tokio::net::ToSocketAddrs;
 
 pub struct App<S> {
@@ -97,7 +97,9 @@ where
         let app = Arc::new(self);
 
         let mut addrs = tokio::net::lookup_host(host).await?;
-        let addr = addrs.next().ok_or_else(|| anyhow::Error::msg("host lookup returned no hosts"))?;
+        let addr = addrs
+            .next()
+            .ok_or_else(|| anyhow::Error::msg("host lookup returned no hosts"))?;
 
         let server = hyper::Server::bind(&addr);
 
@@ -110,10 +112,10 @@ where
                     let app = Arc::clone(&app);
 
                     async move {
-                        let RouteTarget{ ep, params} = app.routes.lookup(req.method(), req.uri().path());
+                        let RouteTarget { ep, params } =
+                            app.routes.lookup(req.method(), req.uri().path());
                         let req = Request::new(Arc::clone(&app), req, params, addr.clone());
-                        ep
-                            .call(req)
+                        ep.call(req)
                             .await
                             .or_else(|err| err.into_response())
                             .map(|resp| resp.into_inner())

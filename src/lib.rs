@@ -1,6 +1,6 @@
 pub use headers;
-pub use mime::Mime;
 pub use hyper::{Method, StatusCode};
+pub use mime::Mime;
 pub use tokio_tungstenite::tungstenite::Message;
 
 pub mod app;

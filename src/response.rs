@@ -10,11 +10,11 @@ use crate::Result;
 use headers::{Header, HeaderMapExt};
 use hyper::header::{HeaderName, HeaderValue};
 use hyper::{Body, StatusCode};
+use log::debug;
 use serde::Serialize;
+use std::path::Path;
 use tokio::io::AsyncRead;
 use tokio_util::io::ReaderStream;
-use std::path::Path;
-use log::debug;
 
 #[derive(Debug)]
 pub struct Response {
@@ -70,8 +70,7 @@ impl Response {
         let mime = mime_guess::from_path(&target).first_or_text_plain();
         debug!("guessed mime: {}", mime);
 
-        Ok(self.header(headers::ContentType::from(mime))
-            .reader(reader))
+        Ok(self.header(headers::ContentType::from(mime)).reader(reader))
     }
 
     /// Set the body of the response to a JSON payload
