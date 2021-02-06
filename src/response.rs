@@ -3,7 +3,7 @@
 /// ```
 /// use highnoon::{Request, Responder, Response};
 /// fn example(_: Request<()>) -> impl Responder {
-///     Response::ok().json(MyData{...})
+///     Response::ok().json(vec![1, 2, 3])
 /// }
 /// ```
 use crate::Result;

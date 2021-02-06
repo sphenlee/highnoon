@@ -14,7 +14,7 @@ use serde::Serialize;
 ///
 /// fn example_1(_: Request<()>) -> impl Responder {
 ///     // return status code
-///     StatusCode::NotFound
+///     StatusCode::NOT_FOUND
 /// }
 ///
 /// fn example_2(_: Request<()>) -> impl Responder {
@@ -24,18 +24,18 @@ use serde::Serialize;
 ///
 /// fn example_3(_: Request<()>) -> impl Responder {
 ///     // return status code with data
-///     (StatusCode::NotFound, "Not found!")
+///     (StatusCode::NOT_FOUND, "Not found!")
 /// }
 ///
 /// fn example_4(_: Request<()>) -> impl Responder {
 ///     // return JSON data - for any type implementing `serde::Serialize`
-///     Json(MyData{ id: 0, key: "foo"})
+///     Json(vec![1, 2, 3])
 /// }
 ///
-/// fn example_5(_: Request<()>) -> tide::Result<impl Responder> {
+/// fn example_5(_: Request<()>) -> highnoon::Result<impl Responder> {
 ///     // fallible functions too
-///     // (also works the return type as `impl Responder` as long as Rust can infer the function returns `tide::Result`)
-///     Ok((StatusCode::Conflict, "Already Exists"))
+///     // (also works the return type as `impl Responder` as long as Rust can infer the function returns `highnoon::Result`)
+///     Ok((StatusCode::CONFLICT, "Already Exists"))
 /// }
 /// ```
 
@@ -115,12 +115,14 @@ impl<T: Serialize> Responder for Form<T> {
     }
 }
 
+/// Identity implementation
 impl Responder for Response {
     fn into_response(self) -> Result<Response> {
         Ok(self)
     }
 }
 
+/// Compatibility with the inner hyper::Response
 impl Responder for hyper::Response<Body> {
     fn into_response(self) -> Result<Response> {
         Ok(self.into())
