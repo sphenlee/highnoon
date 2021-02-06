@@ -13,6 +13,8 @@ use hyper::{Body, StatusCode};
 use serde::Serialize;
 use tokio::io::AsyncRead;
 use tokio_util::io::ReaderStream;
+use std::path::Path;
+use log::debug;
 
 #[derive(Debug)]
 pub struct Response {
@@ -51,11 +53,25 @@ impl Response {
         self
     }
 
-    // Set the body to an AsyncRead object
+    /// Set the body to an AsyncRead object
     pub fn reader(mut self, r: impl AsyncRead + Send + 'static) -> Self {
         let body = Body::wrap_stream(ReaderStream::new(r));
         *self.inner.body_mut() = body;
         self
+    }
+
+    /// Set the body to the content of a file given by a Path
+    /// Also sets a content type by guessing the mime type from the path name
+    pub async fn path(self, path: impl AsRef<Path>) -> Result<Self> {
+        let target = path.as_ref();
+
+        let reader = tokio::fs::File::open(&target).await?;
+
+        let mime = mime_guess::from_path(&target).first_or_text_plain();
+        debug!("guessed mime: {}", mime);
+
+        Ok(self.header(headers::ContentType::from(mime))
+            .reader(reader))
     }
 
     /// Set the body of the response to a JSON payload
@@ -80,6 +96,7 @@ impl Response {
         self
     }
 
+    /// Set a header (without consuming self - useful outside of method chains)
     pub fn set_header<H: Header>(&mut self, h: H) {
         self.inner.headers_mut().typed_insert(h);
     }

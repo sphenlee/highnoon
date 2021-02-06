@@ -1,4 +1,4 @@
-use crate::router::Router;
+use crate::router::{Router, RouteTarget};
 use crate::static_files::StaticFiles;
 use crate::ws::WebSocket;
 use crate::{Endpoint, Responder};
@@ -8,14 +8,14 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method};
 use std::convert::Infallible;
 use std::future::Future;
-use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use log::info;
+use tokio::net::ToSocketAddrs;
 
 pub struct App<S> {
-    state: Arc<S>,
-    routes: Arc<Router<S>>,
+    state: S,
+    routes: Router<S>,
 }
 
 pub struct Route<'a, 'p, S>
@@ -31,16 +31,12 @@ where
     S: Send + Sync + 'static,
 {
     pub fn method(self, method: Method, ep: impl Endpoint<S> + Send + Sync + 'static) -> Self {
-        let routes = Arc::get_mut(&mut self.app.routes)
-            .expect("cannot add routes once serve has been called");
-        routes.add(method, self.path, ep);
+        self.app.routes.add(method, self.path, ep);
         self
     }
 
     pub fn all(self, ep: impl Endpoint<S> + Send + Sync + 'static) -> Self {
-        let routes = Arc::get_mut(&mut self.app.routes)
-            .expect("cannot add routes once serve has been called");
-        routes.add_all(self.path, ep);
+        self.app.routes.add_all(self.path, ep);
         self
     }
 
@@ -84,33 +80,39 @@ where
 {
     pub fn new(state: S) -> Self {
         Self {
-            state: Arc::new(state),
-            routes: Arc::new(Router::new()),
+            state: state,
+            routes: Router::new(),
         }
+    }
+
+    pub fn state(&self) -> &S {
+        &self.state
     }
 
     pub fn at<'a, 'p>(&'a mut self, path: &'p str) -> Route<'a, 'p, S> {
         Route { path, app: self }
     }
 
-    pub async fn listen(self, addr: SocketAddr) -> Result<()> {
+    pub async fn listen(self, host: impl ToSocketAddrs) -> anyhow::Result<()> {
+        let app = Arc::new(self);
+
+        let mut addrs = tokio::net::lookup_host(host).await?;
+        let addr = addrs.next().ok_or_else(|| anyhow::Error::msg("host lookup returned no hosts"))?;
+
         let server = hyper::Server::bind(&addr);
 
         let make_svc = make_service_fn(|addr_stream: &AddrStream| {
-            let state = Arc::clone(&self.state);
-            let routes = Arc::clone(&self.routes);
+            let app = Arc::clone(&app);
             let addr = addr_stream.remote_addr();
 
             async move {
                 Ok::<_, Infallible>(service_fn(move |req: hyper::Request<Body>| {
-                    let state = Arc::clone(&state);
-                    let routes = Arc::clone(&routes);
+                    let app = Arc::clone(&app);
 
                     async move {
-                        let target = routes.lookup(req.method(), req.uri().path());
-                        let req = Request::new(state, req, target.params, addr.clone());
-                        target
-                            .ep
+                        let RouteTarget{ ep, params} = app.routes.lookup(req.method(), req.uri().path());
+                        let req = Request::new(Arc::clone(&app), req, params, addr.clone());
+                        ep
                             .call(req)
                             .await
                             .or_else(|err| err.into_response())

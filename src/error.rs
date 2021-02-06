@@ -23,19 +23,31 @@ impl Responder for Error {
     fn into_response(self) -> Result<Response> {
         match self {
             Error::Http(resp) => Ok(resp),
-            Error::Internal(_err) => Ok(Response::status(StatusCode::INTERNAL_SERVER_ERROR)),
+            Error::Internal(err) => {
+                log::error!("internal server error: {}", err);
+                Ok(Response::status(StatusCode::INTERNAL_SERVER_ERROR))
+            },
         }
     }
 }
 
 impl<E> From<E> for Error
 where
-    E: std::error::Error + Send + Sync + 'static,
+    //E: std::error::Error + Send + Sync + 'static,
+    E: Into<anyhow::Error>
 {
     fn from(e: E) -> Self {
-        Error::Internal(anyhow::Error::new(e))
+        //Error::Internal(anyhow::Error::new(e))
+        Error::Internal(e.into())
     }
 }
+
+// impl From<anyhow::Error> for Error
+// {
+//     fn from(e: anyhow::Error) -> Self {
+//         Error::Internal(e)
+//     }
+// }
 
 impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -57,3 +69,4 @@ impl std::fmt::Display for Error {
         }
     }
 }
+

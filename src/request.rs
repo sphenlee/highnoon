@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::{Result, Error, App};
 use headers::{Header, HeaderMapExt};
 use hyper::header::HeaderValue;
 use hyper::{body::Buf, Body, HeaderMap};
@@ -9,16 +9,16 @@ use std::sync::Arc;
 use std::net::SocketAddr;
 
 pub struct Request<S: Sync + 'static> {
-    state: Arc<S>,
+    app: Arc<App<S>>,
     params: Params,
     inner: hyper::Request<Body>,
     remote_addr: SocketAddr,
 }
 
-impl<S: Sync + 'static> Request<S> {
-    pub(crate) fn new(state: Arc<S>, inner: hyper::Request<Body>, params: Params, remote_addr: SocketAddr) -> Self {
+impl<S: Send + Sync + 'static> Request<S> {
+    pub(crate) fn new(app: Arc<App<S>>, inner: hyper::Request<Body>, params: Params, remote_addr: SocketAddr) -> Self {
         Self {
-            state,
+            app,
             inner,
             params,
             remote_addr,
@@ -26,7 +26,7 @@ impl<S: Sync + 'static> Request<S> {
     }
 
     pub fn state(&self) -> &S {
-        &*self.state
+        self.app.state()
     }
 
     pub fn method(&self) -> &hyper::Method {
@@ -35,6 +35,14 @@ impl<S: Sync + 'static> Request<S> {
 
     pub fn uri(&self) -> &hyper::Uri {
         self.inner.uri()
+    }
+
+    pub fn query<T: DeserializeOwned>(&self) -> Result<T> {
+        // if there is no query string we can default to empty string
+        // serde_urlencode will work if T has all optional fields
+        let q = self.inner.uri().query().unwrap_or("");
+        let t = serde_urlencoded::from_str::<T>(q)?;
+        Ok(t)
     }
 
     pub fn header<T: Header>(&self) -> Option<T> {
@@ -48,7 +56,7 @@ impl<S: Sync + 'static> Request<S> {
     pub fn param(&self, param: &str) -> Result<&str> {
         self.params.find(param).ok_or_else(|| {
             // TODO - clean this up
-            crate::error::Error::Internal(anyhow::Error::msg(format!(
+            Error::Internal(anyhow::Error::msg(format!(
                 "parameter {} not found",
                 param
             )))
@@ -68,12 +76,17 @@ impl<S: Sync + 'static> Request<S> {
         Ok(buffer.reader())
     }
 
-    pub async fn bytes(&mut self) -> Result<Vec<u8>> {
+    pub async fn body_bytes(&mut self) -> Result<Vec<u8>> {
         let bytes = hyper::body::to_bytes(self.inner.body_mut()).await?;
         Ok(bytes.to_vec())
     }
 
-    pub async fn json<T: DeserializeOwned>(&mut self) -> Result<T> {
+    pub async fn body_string(&mut self) -> Result<String> {
+        let bytes = hyper::body::to_bytes(self.inner.body_mut()).await?;
+        Ok(String::from_utf8(bytes.to_vec())?)
+    }
+
+    pub async fn body_json<T: DeserializeOwned>(&mut self) -> Result<T> {
         let buffer = hyper::body::aggregate(self.inner.body_mut()).await?;
         let json = serde_json::from_reader(buffer.reader())?;
         Ok(json)

@@ -18,8 +18,8 @@ async fn main() -> Result<()> {
     app.at("/hello")
         .get(|_req| async { "Hello world!\n\n" })
         .post(|mut req: Request<()>| async move {
-            let bytes = req.bytes().await?;
-            Ok(bytes.to_vec())
+            let bytes = req.body_bytes().await?;
+            Ok(bytes)
         });
 
     app.at("/echo/:name").get(|req: Request<()>| async move {
@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
 
     app.at("/static/*").static_files("examples/resources/");
 
-    app.listen("0.0.0.0:8888".parse().unwrap()).await?;
+    app.listen("0.0.0.0:8888").await?;
     Ok(())
 }
 
@@ -67,7 +67,7 @@ async fn echo_stuff(mut req: Request<()>) -> Result<StatusCode> {
     let headers = req.headers();
     println!("header: {:#?}", headers);
 
-    let body = req.bytes().await?;
+    let body = req.body_bytes().await?;
     println!("body: {}", String::from_utf8_lossy(&body));
 
     println!("remote addr: {}", req.remote_addr());

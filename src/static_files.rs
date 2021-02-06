@@ -2,7 +2,7 @@ use crate::{Endpoint, Request, Response, Result};
 use async_trait::async_trait;
 use hyper::StatusCode;
 use log::{debug, warn};
-use serde::export::PhantomData;
+use std::marker::PhantomData;
 use std::path::{Component, PathBuf};
 
 pub(crate) struct StaticFiles<S>
@@ -77,13 +77,6 @@ where
             return Ok(Response::status(StatusCode::NOT_FOUND));
         }
 
-        let reader = tokio::fs::File::open(&target).await?;
-
-        let mime = mime_guess::from_path(&target).first_or_text_plain();
-        debug!("guessed mime: {}", mime);
-
-        Ok(Response::ok()
-            .header(headers::ContentType::from(mime))
-            .reader(reader))
+        Response::ok().path(target).await
     }
 }
