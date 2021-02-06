@@ -39,7 +39,7 @@ where
     ) {
         self.methods
             .entry(method)
-            .or_insert_with(|| route_recognizer::Router::new())
+            .or_insert_with(route_recognizer::Router::new)
             .add(path, Box::new(ep))
     }
 
@@ -57,7 +57,7 @@ where
                 ep: &***match_.handler(),
                 params: match_.params().clone(), // TODO - avoid this clone?
             }
-        } else if let Some(match_) = self.all.recognize(path).ok() {
+        } else if let Ok(match_) = self.all.recognize(path) {
             RouteTarget {
                 ep: &***match_.handler(),
                 params: match_.params().clone(), // TODO - avoid this clone?

@@ -1,7 +1,6 @@
 use crate::{Endpoint, Request, Response, Result};
 use async_trait::async_trait;
 use futures_util::{SinkExt, TryStreamExt};
-use headers;
 use hyper::upgrade::Upgraded;
 use hyper::StatusCode;
 use log::trace;

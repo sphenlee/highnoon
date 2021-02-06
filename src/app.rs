@@ -80,7 +80,7 @@ where
 {
     pub fn new(state: S) -> Self {
         Self {
-            state: state,
+            state,
             routes: Router::new(),
         }
     }
@@ -114,7 +114,7 @@ where
                     async move {
                         let RouteTarget { ep, params } =
                             app.routes.lookup(req.method(), req.uri().path());
-                        let req = Request::new(Arc::clone(&app), req, params, addr.clone());
+                        let req = Request::new(Arc::clone(&app), req, params, addr);
                         ep.call(req)
                             .await
                             .or_else(|err| err.into_response())
