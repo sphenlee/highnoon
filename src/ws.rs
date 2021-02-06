@@ -1,4 +1,5 @@
-use crate::{Endpoint, Request, Response, Result};
+use crate::{Request, Response, Result};
+use crate::endpoint::Endpoint;
 use async_trait::async_trait;
 use futures_util::{SinkExt, TryStreamExt};
 use hyper::upgrade::Upgraded;

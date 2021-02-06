@@ -1,7 +1,8 @@
-use highnoon::{App, Json, Message, Request, Result};
+use highnoon::{App, Json, Message, Request, Result, Response};
 use hyper::StatusCode;
 use serde_derive::Serialize;
 use tokio;
+use highnoon::filter::Next;
 
 #[derive(Serialize)]
 struct Sample {
@@ -9,11 +10,31 @@ struct Sample {
     value: i32,
 }
 
+struct AuthCheck;
+
+#[async_trait::async_trait]
+impl highnoon::filter::Filter<()> for AuthCheck {
+    async fn apply(&self, req: Request<()>, next: Next<'_, ()>) -> Result<Response> {
+        let auth = req.header::<headers::Authorization<headers::authorization::Bearer>>();
+
+        match auth {
+            None => return Ok(Response::status(StatusCode::UNAUTHORIZED)),
+            Some(bearer) => {
+                log::info!("got bearer token: {}", bearer.0.token());
+                next.next(req).await
+            }
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
 
     let mut app = App::new(());
+
+    app.with(highnoon::filter::log::Log);
+    app.with(AuthCheck);
 
     app.at("/hello")
         .get(|_req| async { "Hello world!\n\n" })

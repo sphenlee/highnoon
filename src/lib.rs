@@ -12,9 +12,10 @@ pub mod response;
 pub mod router;
 mod static_files;
 pub mod ws;
+pub mod filter;
 
 pub use app::App;
-pub use endpoint::Endpoint;
+//pub use endpoint::Endpoint;
 pub use error::Error;
 pub use request::Request;
 pub use responder::{Json, Responder};

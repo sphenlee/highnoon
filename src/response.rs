@@ -47,6 +47,11 @@ impl Response {
         *self.inner.status_mut() = s;
     }
 
+    /// Get the status code of a response
+    pub fn get_status(&self) -> StatusCode {
+        self.inner.status()
+    }
+
     /// Set the body of the response
     pub fn body(mut self, body: impl Into<Body>) -> Self {
         *self.inner.body_mut() = body.into();

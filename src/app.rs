@@ -1,8 +1,9 @@
 use crate::router::{RouteTarget, Router};
 use crate::static_files::StaticFiles;
 use crate::ws::WebSocket;
-use crate::{Endpoint, Responder};
-use crate::{Request, Result};
+use crate::endpoint::Endpoint;
+use crate::{Responder, Request, Result};
+use crate::filter::{Filter, Next};
 use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method};
@@ -16,6 +17,7 @@ use tokio::net::ToSocketAddrs;
 pub struct App<S> {
     state: S,
     routes: Router<S>,
+    filters: Vec<Box<dyn Filter<S> + Send + Sync + 'static>>,
 }
 
 pub struct Route<'a, 'p, S>
@@ -82,11 +84,19 @@ where
         Self {
             state,
             routes: Router::new(),
+            filters: vec![],
         }
     }
 
     pub fn state(&self) -> &S {
         &self.state
+    }
+
+    pub fn with<F>(&mut self, filter: F)
+    where
+        F: Filter<S> + Send + Sync + 'static
+    {
+        self.filters.push(Box::new(filter));
     }
 
     pub fn at<'a, 'p>(&'a mut self, path: &'p str) -> Route<'a, 'p, S> {
@@ -115,7 +125,9 @@ where
                         let RouteTarget { ep, params } =
                             app.routes.lookup(req.method(), req.uri().path());
                         let req = Request::new(Arc::clone(&app), req, params, addr);
-                        ep.call(req)
+
+                        let next = Next { ep, rest: &*app.filters };
+                        next.next(req)
                             .await
                             .or_else(|err| err.into_response())
                             .map(|resp| resp.into_inner())

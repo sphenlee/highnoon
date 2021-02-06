@@ -1,4 +1,5 @@
-use crate::{Endpoint, Request, Responder};
+use crate::{Request, Responder};
+use crate::endpoint::Endpoint;
 use hyper::{Method, StatusCode};
 use route_recognizer::Params;
 use std::collections::HashMap;
