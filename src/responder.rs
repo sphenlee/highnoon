@@ -34,7 +34,8 @@ use serde::Serialize;
 ///
 /// fn example_5(_: Request<()>) -> highnoon::Result<impl Responder> {
 ///     // fallible functions too
-///     // (also works the return type as `impl Responder` as long as Rust can infer the function returns `highnoon::Result`)
+///     // (also works the return type as `impl Responder` as long as Rust can infer
+///     // the function returns `highnoon::Result`)
 ///     Ok((StatusCode::CONFLICT, "Already Exists"))
 /// }
 /// ```

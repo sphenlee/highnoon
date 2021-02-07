@@ -81,6 +81,9 @@ where
         self.method(Method::GET, StaticFiles::new(root, prefix))
     }
 
+    /// Mount an app to handle all requests from this path.
+    /// The path may contain parameters and these will be merged into
+    /// the parameters from individual paths in the inner `App`
     pub fn mount(&mut self, app: App<S>)
     {
         let path = self.path.to_owned() + "/*-highnoon-path-rest-";
@@ -102,6 +105,9 @@ impl<S> App<S>
 where
     S: Send + Sync + 'static,
 {
+    /// Create a new `App` with the given state.
+    /// State must be `Send + Sync + 'static` because it gets shared by all route handlers.
+    /// If you need inner mutability use a `Mutex` or similar.
     pub fn new(state: S) -> Self {
         Self {
             state,
@@ -110,10 +116,13 @@ where
         }
     }
 
+    /// Get a reference to this App's state
     pub fn state(&self) -> &S {
         &self.state
     }
 
+    /// Append a filter to the chain. Filters are applied to all endpoints in this app, and are
+    /// applied in the order they are registered.
     pub fn with<F>(&mut self, filter: F)
     where
         F: Filter<S> + Send + Sync + 'static
@@ -121,17 +130,14 @@ where
         self.filters.push(Box::new(filter));
     }
 
+    /// Create a route at the given path. Returns a `Route` object on which you can
+    /// attach handlers for each HTTP method
     pub fn at<'a, 'p>(&'a mut self, path: &'p str) -> Route<'a, 'p, S> {
         Route { path, app: self }
     }
 
-    async fn handle(next: Next<'_, S>, req: Request<S>) -> Result<Response> {
-        next.next(req)
-            .await
-            .or_else(|err| err.into_response())
-    }
-
-
+    /// Start a server listening on the given address (See `ToSocketAddrs` from tokio)
+    /// This method only returns if there is an error. (Graceful shutdown is TODO)
     pub async fn listen(self, host: impl ToSocketAddrs) -> anyhow::Result<()> {
         let app = Arc::new(self);
 
@@ -158,8 +164,9 @@ where
 
                         let next = Next { ep, rest: &*app.filters };
 
-                        App::handle(next, req)
+                        next.next(req)
                             .await
+                            .or_else(|err| err.into_response())
                             .map(|resp| resp.into_inner())
                             .map_err(|err| err.into_std())
                     }
@@ -188,6 +195,6 @@ where
 
         let next = Next { ep, rest: &*self.filters };
 
-        App::handle(next, req).await
+        next.next(req).await
     }
 }

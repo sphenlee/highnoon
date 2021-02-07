@@ -7,6 +7,9 @@ pub mod log;
 
 pub use self::log::Log;
 
+/// Represents either the next Filter in the chain, or the actual endpoint if the chain is
+/// empty or completed. Use its `next` method to call the next filter/endpoint if the
+/// request should continue to be processed.
 pub struct Next<'a, S>
 where
     S: Send + Sync + 'static
@@ -19,6 +22,8 @@ impl<S> Next<'_, S>
 where
     S: Send + Sync + 'static
 {
+    /// Call either the next filter in the chain, or the actual endpoint if there are no more
+    /// filters. Filters are not required to call next (eg. to return a Forbidden status instead)
     pub async fn next(self, req: Request<S>) -> Result<Response> {
         match self.rest.split_first() {
             Some((head, rest)) => {
@@ -30,6 +35,9 @@ where
     }
 }
 
+/// A Filter is a reusable bit of logic which wraps an endpoint to provide pre- and post-processing.
+/// Filters can call the `Next` argument to continue processing, or may return early to stop the
+/// chain. Filters can be used for logging, authentication, cookie handling and many other uses.
 #[async_trait]
 pub trait Filter<S>
 where

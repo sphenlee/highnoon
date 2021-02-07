@@ -11,6 +11,8 @@ use std::sync::Arc;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
 
+/// An endpoint for accepting a websocket connection.
+/// Typically constructed by the `Route::ws` method.
 #[derive(Debug)]
 pub struct WsEndpoint<H, F, S>
 where
@@ -22,6 +24,8 @@ where
     _phantoms: PhantomData<S>,
 }
 
+/// Create a websocket endpoint.
+/// Typically called by the `Route::ws` method.
 pub fn endpoint<H, F, S>(handler: H) -> WsEndpoint<H, F, S>
 where
     S: Send + Sync + 'static,
@@ -104,16 +108,19 @@ where
     res
 }
 
+/// A websocket connection
 pub struct WebSocket {
     inner: WebSocketStream<Upgraded>,
 }
 
 impl WebSocket {
+    /// Receive a message from the websocket
     pub async fn recv(&mut self) -> Result<Option<Message>> {
         let msg = self.inner.try_next().await?;
         Ok(msg)
     }
 
+    /// Send a message over the websocket
     pub async fn send(&mut self, msg: Message) -> Result<()> {
         self.inner.send(msg).await?;
         Ok(())

@@ -1,4 +1,4 @@
-use highnoon::{App, Json, Message, Request, Result, Response};
+use highnoon::{App, Json, Message, Request, Result, Response, Error};
 use hyper::StatusCode;
 use serde_derive::Serialize;
 use tokio;
@@ -26,6 +26,17 @@ impl highnoon::filter::Filter<()> for AuthCheck {
         }
     }
 }
+
+fn error_example(req: &Request<()>) -> Result<()> {
+    let fail = req.param("fail")?.parse::<bool>()?;
+
+    if fail {
+        Err(Error::http((StatusCode::BAD_REQUEST, "you asked for it")))
+    } else {
+        Ok(())
+    }
+}
+
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -55,6 +66,11 @@ async fn main() -> Result<()> {
             data: "hello".to_owned(),
             value: 1234,
         })
+    });
+
+    app.at("/error/:fail").get(|req| async move {
+        error_example(&req)?;
+        Ok("")
     });
 
     app.at("/query").get(echo_stuff);

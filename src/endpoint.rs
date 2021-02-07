@@ -4,6 +4,11 @@ use std::future::Future;
 
 pub type DynEndpoint<S> = dyn Endpoint<S> + Send + Sync + 'static;
 
+/// Implement `Endpoint` for a type to be used as a method handler.
+///
+/// It is already implemented for functions of `Request` to `Result<Response>`
+/// which is the simplest (and most convenient) kind of handler.
+/// You can implement it manually for endpoints that may require some kind of local state.
 #[async_trait]
 pub trait Endpoint<S>
 where

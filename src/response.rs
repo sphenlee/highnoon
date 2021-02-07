@@ -16,6 +16,10 @@ use std::path::Path;
 use tokio::io::AsyncRead;
 use tokio_util::io::ReaderStream;
 
+/// A response to be returned to the client.
+/// You do not always need to use this struct directly as endpoints can
+/// return anything implementing `Responder`. However this is the most flexible
+/// way to construct a reply, and it implements `Responder` (the "identity" implementation).
 #[derive(Debug)]
 pub struct Response {
     inner: hyper::Response<Body>,
@@ -117,6 +121,7 @@ impl Response {
     }
 }
 
+/// Create a `Response` from a `hyper::Response<hyper::Body>`
 impl From<hyper::Response<Body>> for Response {
     fn from(hyper_response: hyper::Response<Body>) -> Self {
         Self {
@@ -125,6 +130,7 @@ impl From<hyper::Response<Body>> for Response {
     }
 }
 
+/// Get a reference to the inner `hyper::Response`
 impl AsRef<hyper::Response<Body>> for Response {
     fn as_ref(&self) -> &hyper::Response<Body> {
         &self.inner
