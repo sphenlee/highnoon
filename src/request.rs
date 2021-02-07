@@ -30,6 +30,12 @@ impl<S: Send + Sync + 'static> Request<S> {
         }
     }
 
+    pub(crate) fn merge_params(&mut self, params: Params) {
+        for (k, v) in params.iter() {
+            self.params.insert(k.to_owned(), v.to_owned());
+        }
+    }
+
     pub fn state(&self) -> &S {
         self.app.state()
     }
@@ -63,6 +69,10 @@ impl<S: Send + Sync + 'static> Request<S> {
             // TODO - clean this up
             Error::Internal(anyhow::Error::msg(format!("parameter {} not found", param)))
         })
+    }
+
+    pub fn params(&self) -> &Params {
+        &self.params
     }
 
     pub async fn body_mut(&mut self) -> Result<&mut Body> {

@@ -2,7 +2,7 @@ use crate::router::{RouteTarget, Router};
 use crate::static_files::StaticFiles;
 use crate::ws::WebSocket;
 use crate::endpoint::Endpoint;
-use crate::{Responder, Request, Result};
+use crate::{Responder, Request, Result, Response};
 use crate::filter::{Filter, Next};
 use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
@@ -13,6 +13,7 @@ use std::future::Future;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::net::ToSocketAddrs;
+use async_trait::async_trait;
 
 /// The main entry point to highnoon. An `App` can be launched as a server
 /// or mounted into another `App`.
@@ -80,9 +81,12 @@ where
         self.method(Method::GET, StaticFiles::new(root, prefix))
     }
 
-    /*pub fn mount(self, _app: App<S>) -> Self {
-        self
-    }*/
+    pub fn mount(&mut self, app: App<S>)
+    {
+        let path = self.path.to_owned() + "/*-highnoon-path-rest-";
+        let route = Route { app: self.app, path: &path };
+        route.all(app);
+    }
 
     /// Attach a websocket handler to this route
     pub fn ws<H, F>(self, handler: H)
@@ -121,6 +125,13 @@ where
         Route { path, app: self }
     }
 
+    async fn handle(next: Next<'_, S>, req: Request<S>) -> Result<Response> {
+        next.next(req)
+            .await
+            .or_else(|err| err.into_response())
+    }
+
+
     pub async fn listen(self, host: impl ToSocketAddrs) -> anyhow::Result<()> {
         let app = Arc::new(self);
 
@@ -142,12 +153,13 @@ where
                     async move {
                         let RouteTarget { ep, params } =
                             app.routes.lookup(req.method(), req.uri().path());
+
                         let req = Request::new(Arc::clone(&app), req, params, addr);
 
                         let next = Next { ep, rest: &*app.filters };
-                        next.next(req)
+
+                        App::handle(next, req)
                             .await
-                            .or_else(|err| err.into_response())
                             .map(|resp| resp.into_inner())
                             .map_err(|err| err.into_std())
                     }
@@ -158,5 +170,24 @@ where
         info!("server listening on {}", addr);
         server.serve(make_svc).await?;
         Ok(())
+    }
+}
+
+#[async_trait]
+impl<S> Endpoint<S> for App<S>
+where
+    S: Send + Sync + 'static
+{
+    async fn call(&self, mut req: Request<S>) -> Result<Response> {
+        let path_rest = req.param("-highnoon-path-rest-")?;
+
+        let RouteTarget { ep, params } =
+            self.routes.lookup(req.method(), path_rest);
+
+        req.merge_params(params);
+
+        let next = Next { ep, rest: &*self.filters };
+
+        App::handle(next, req).await
     }
 }

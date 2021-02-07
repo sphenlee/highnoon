@@ -34,7 +34,6 @@ async fn main() -> Result<()> {
     let mut app = App::new(());
 
     app.with(highnoon::filter::log::Log);
-    app.with(AuthCheck);
 
     app.at("/hello")
         .get(|_req| async { "Hello world!\n\n" })
@@ -71,6 +70,21 @@ async fn main() -> Result<()> {
 
         Ok(())
     });
+
+    let mut api = App::new(());
+    api.with(AuthCheck);
+
+    api.at("check").get(|req: Request<_>| async move {
+        println!("URI: {}", req.uri());
+        StatusCode::OK
+    });
+    api.at("user/:name").get(|req: Request<_>| async move {
+        println!("URI: {}", req.uri());
+        println!("params: {:?}", req.params());
+        StatusCode::OK
+    });
+
+    app.at("/api/:version").mount(api);
 
     app.at("/static/*").static_files("examples/resources/");
 

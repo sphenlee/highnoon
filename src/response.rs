@@ -124,3 +124,9 @@ impl From<hyper::Response<Body>> for Response {
         }
     }
 }
+
+impl AsRef<hyper::Response<Body>> for Response {
+    fn as_ref(&self) -> &hyper::Response<Body> {
+        &self.inner
+    }
+}

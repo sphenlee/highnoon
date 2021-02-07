@@ -2,6 +2,8 @@ use crate::{Request, Responder, Response, Result};
 use async_trait::async_trait;
 use std::future::Future;
 
+pub type DynEndpoint<S> = dyn Endpoint<S> + Send + Sync + 'static;
+
 #[async_trait]
 pub trait Endpoint<S>
 where
