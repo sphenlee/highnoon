@@ -44,7 +44,7 @@ impl Responder for Error {
     fn into_response(self) -> Result<Response> {
         match self {
             Error::Http(resp) => Ok(resp),
-            Error::Internal(err) => {
+            Error::Internal(_err) => {
                 //log::error!("internal server error: {}", err);
                 Ok(Response::status(StatusCode::INTERNAL_SERVER_ERROR))
             }

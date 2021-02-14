@@ -1,7 +1,7 @@
 use crate::{App, Error, Result};
 use headers::{Header, HeaderMapExt};
 use hyper::header::HeaderValue;
-use hyper::{body::Buf, Body, HeaderMap};
+use hyper::{body::Buf, Body, HeaderMap, StatusCode};
 use route_recognizer::Params;
 use serde::de::DeserializeOwned;
 use std::io::Read;
@@ -76,10 +76,12 @@ impl<S: Send + Sync + 'static> Request<S> {
     }
 
     /// Get a route parameter (eg. `:key` or `*key` segments in the URI path)
+    ///
+    /// If the parameter is not present, logs an error and returns a `400 Bad Request` to the client
     pub fn param(&self, param: &str) -> Result<&str> {
         self.params.find(param).ok_or_else(|| {
-            // TODO - clean this up
-            Error::Internal(anyhow::Error::msg(format!("parameter {} not found", param)))
+            log::error!("parameter {} not found", param);
+            Error::http(StatusCode::BAD_REQUEST)
         })
     }
 
@@ -99,7 +101,7 @@ impl<S: Send + Sync + 'static> Request<S> {
 
     /// Get a reader to read the request body
     ///
-    /// (This does buffer the whole body into memory (not necessarily contiguous memory).
+    /// (This does buffer the whole body into memory, but not necessarily contiguous memory).
     /// If you need to protect against malicious clients you should access the body via `body_mut`
     pub async fn reader(&mut self) -> Result<impl Read + '_> {
         let buffer = hyper::body::aggregate(self.inner.body_mut()).await?;
@@ -118,16 +120,22 @@ impl<S: Send + Sync + 'static> Request<S> {
         Ok(String::from_utf8(bytes.to_vec())?)
     }
 
-    /// Get the request body as JSON and deserialise into `T`
+    /// Get the request body as JSON and deserialize into `T`.
+    ///
+    /// If deserialization fails, log an error and return `400 Bad Request`.
+    /// (If this logic is not appropriate, consider using `reader` and using `serde_json` directly)
     pub async fn body_json<T: DeserializeOwned>(&mut self) -> Result<T> {
-        let buffer = hyper::body::aggregate(self.inner.body_mut()).await?;
-        let json = serde_json::from_reader(buffer.reader())?;
-        Ok(json)
+        let reader = self.reader().await?;
+        serde_json::from_reader(reader).map_err(|err| {
+            let msg = format!("error parsing request body as json: {}", err);
+            log::error!("{}", msg);
+            Error::http((StatusCode::BAD_REQUEST, msg))
+        })
     }
 
     /// Get the address of the remote peer.
     ///
-    /// This method uses the network level address only and hwnce may be incorrect if you are
+    /// This method uses the network level address only and hence may be incorrect if you are
     /// behind a proxy. (This does *not* check for any `Forwarded` headers etc...)
     pub fn remote_addr(&self) -> &SocketAddr {
         &self.remote_addr

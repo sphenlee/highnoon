@@ -40,7 +40,7 @@ fn error_example(req: &Request<()>) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
+    femme::start();
 
     let mut app = App::new(());
 
