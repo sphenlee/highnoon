@@ -4,27 +4,24 @@ use serde_derive::Serialize;
 use tokio;
 use highnoon::filter::Next;
 use highnoon::filter::session;
-use std::sync::Arc;
 use highnoon::filter::session::{Session, HasSession};
 
-struct State;
-struct Context {
-    session: Arc<session::Session>
-}
-
-impl session::HasSession for Context {
-    fn session(&mut self) -> Arc<Session> {
-        Arc::clone(&self.session)
-    }
+#[derive(Default)]
+struct State {
+    session: session::Session
 }
 
 impl highnoon::State for State {
-    type Context = Context;
-
-    fn new_context(&self) -> Context {
-        Context {
-            session: Arc::new(Session::default())
+    fn instantiate(&self) -> State {
+        State {
+            session: Session::default()
         }
+    }
+}
+
+impl session::HasSession for State {
+    fn session(&mut self) -> &mut Session {
+        &mut self.session
     }
 }
 
@@ -67,7 +64,7 @@ fn error_example(req: &Request<State>) -> Result<()> {
 async fn main() -> Result<()> {
     femme::with_level(femme::LevelFilter::Debug);
 
-    let mut app = App::new(State);
+    let mut app = App::new(State::default());
 
     app.with(highnoon::filter::Log);
     let memstore = highnoon::filter::session::MemorySessionStore::new();
@@ -82,17 +79,19 @@ async fn main() -> Result<()> {
 
     app.at("/echo/:name").get(|mut req: Request<State>| async move {
         let seen = match req.session().get("seen") {
-            None => false,
+            None => 0,
             Some(s) => s.parse()?
         };
 
-        let greeting = if seen {
+        let greeting = if seen > 1 {
+            "You again!"
+        } else if seen == 1 {
             "Welcome back"
         } else {
             "Hello"
         };
 
-        req.session().set("seen".to_owned(), "true".to_owned());
+        req.session().set("seen".to_owned(), (seen + 1).to_string());
 
         let p = req.param("name");
         Ok(match p {
@@ -127,7 +126,7 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
-    let mut api = App::new(State);
+    let mut api = App::new(State::default());
     api.with(AuthCheck);
 
     api.at("check").get(|req: Request<_>| async move {

@@ -69,15 +69,20 @@ impl SessionFilter {
     }
 }
 
-/// A session
 #[derive(Default)]
-pub struct Session {
+struct SessionInner {
     modified: AtomicBool,
     data: Mutex<HashMap<String, String>>,
 }
 
-impl Session {
-    pub fn get(&self, key: &str) -> Option<String> {
+/// A session
+#[derive(Default)]
+pub struct Session {
+    inner: Arc<SessionInner>
+}
+
+impl SessionInner {
+    fn get(&self, key: &str) -> Option<String> {
         debug!("session get", {
             key: key
         });
@@ -85,7 +90,7 @@ impl Session {
         data.get(key).cloned()
     }
 
-    pub fn set(&self, key: String, value: String) {
+    fn set(&self, key: String, value: String) {
         debug!("session set", {
             key: key,
             value: value,
@@ -94,7 +99,7 @@ impl Session {
         self.modified.store(true, Ordering::Relaxed);
     }
 
-    pub fn is_modified(&self) -> bool {
+    fn is_modified(&self) -> bool {
         self.modified.load(Ordering::Relaxed)
     }
 
@@ -107,28 +112,40 @@ impl Session {
     }
 }
 
+impl Session {
+    pub fn get(&self, key: &str) -> Option<String> {
+        self.inner.get(key)
+    }
+
+    pub fn set(&self, key: String, value: String) {
+        self.inner.set(key, value)
+    }
+
+    pub fn is_modified(&self) -> bool {
+        self.inner.is_modified()
+    }
+}
+
 pub trait HasSession {
-    fn session(&mut self) -> Arc<Session>;
+    fn session(&mut self) -> &mut Session;
 }
 
 impl<S> HasSession for Request<S>
 where
-    S: State,
-    S::Context: HasSession
+    S: State + HasSession
 {
-    fn session(&mut self) -> Arc<Session> {
-        self.context_mut().session()
+    fn session(&mut self) -> &mut Session {
+        self.state_mut().session()
     }
 }
 
 #[async_trait]
 impl<S> Filter<S> for SessionFilter
 where
-    S: State,
-    S::Context: HasSession
+    S: State + HasSession
 {
     async fn apply(&self, mut req: Request<S>, next: Next<'_, S>) -> Result<Response> {
-        let session = req.session();
+        let session = Arc::clone(&req.session().inner);
 
         // TODO - pick the cookie name
         let maybe_sid = req

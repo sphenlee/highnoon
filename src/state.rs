@@ -1,17 +1,16 @@
 
 /// State must be implemented for any type being used as the App's state
 ///
-/// State is shared by all requests
+/// State is cloned for each request - if you need any state to be shared wrap it with
+/// an Arc
 pub trait State: Send + Sync + 'static {
-    type Context: Send;
-    fn new_context(&self) -> Self::Context;
+    fn instantiate(&self) -> Self;
 }
 
-/// implement state for () to allow quick examples that don't need it
-impl State for () {
-    type Context = ();
-
-    fn new_context(&self) -> Self::Context {
+/// implement state for all types already meeting the constraints
+impl State for ()
+{
+    fn instantiate(&self) -> Self {
         ()
     }
 }
