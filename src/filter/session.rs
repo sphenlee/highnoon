@@ -15,17 +15,24 @@ use cookie::Cookie;
 /// Trait for session storage
 #[async_trait]
 pub trait SessionStore {
+    /// Get the data associated with session
     async fn get(&self, id: &str) -> Option<&str>;
+    /// Set the data for a session
     async fn set(&mut self, id: String, value: String);
+    /// Clear data for a session
     async fn clear(&mut self, id: &str);
 }
 
+/// Memory backed implementation of session storage.
+/// NOTE this is only meant for demos and examples. In a real server
+/// you would store sessions externally (e.g. in redis or a database)
 #[derive(Default)]
 pub struct MemorySessionStore {
     data: HashMap<String, String>,
 }
 
 impl MemorySessionStore {
+    /// Create a new memory session store
     pub fn new() -> Self {
         Self::default()
     }
@@ -56,12 +63,15 @@ impl SessionStore for MemorySessionStore {
     }
 }
 
-/// A filter to extract request cookies and supply response cookies
+/// A filter for implementaing basic session support
+///
+/// This filter requires that the App's State implements HasSession
 pub struct SessionFilter {
     store: AsyncMutex<Box<dyn SessionStore + Send + Sync + 'static>>,
 }
 
 impl SessionFilter {
+    /// Create a new session filter using the provided store
     pub fn new(store: impl SessionStore + Send + Sync + 'static) -> SessionFilter {
         SessionFilter {
             store: AsyncMutex::new(Box::new(store))
@@ -113,23 +123,30 @@ impl SessionInner {
 }
 
 impl Session {
+    /// Get a value from the session
     pub fn get(&self, key: &str) -> Option<String> {
         self.inner.get(key)
     }
 
+    /// Store a value into the session
     pub fn set(&self, key: String, value: String) {
         self.inner.set(key, value)
     }
 
+    /// Determine if the session has been modified
     pub fn is_modified(&self) -> bool {
         self.inner.is_modified()
     }
 }
 
+/// This trait must be implemented by the App's State type in order to use the
+/// SessionFilter
 pub trait HasSession {
+    /// Get a reference to the Session for this current request
     fn session(&mut self) -> &mut Session;
 }
 
+/// Implement HasSession on requests where the State has sessions
 impl<S> HasSession for Request<S>
 where
     S: State + HasSession
