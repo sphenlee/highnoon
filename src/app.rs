@@ -1,5 +1,6 @@
 use crate::router::{RouteTarget, Router};
 use crate::static_files::StaticFiles;
+use crate::state::State;
 use crate::ws::WebSocket;
 use crate::endpoint::Endpoint;
 use crate::{Responder, Request, Result, Response};
@@ -19,24 +20,20 @@ use async_trait::async_trait;
 /// or mounted into another `App`.
 /// Each `App` has a chain of (Filters)[`Filter`]
 /// which are applied to each request.
-pub struct App<S> {
+pub struct App<S: State> {
     state: S,
     routes: Router<S>,
     filters: Vec<Box<dyn Filter<S> + Send + Sync + 'static>>,
 }
 
 /// Returned by `App::at` and attaches method handlers to a route.
-pub struct Route<'a, 'p, S>
-where
-    S: Send + Sync + 'static,
+pub struct Route<'a, 'p, S: State>
 {
     path: &'p str,
     app: &'a mut App<S>,
 }
 
-impl<'a, 'p, S> Route<'a, 'p, S>
-where
-    S: Send + Sync + 'static,
+impl<'a, 'p, S: State> Route<'a, 'p, S>
 {
     /// Attach an endpoint for a specific HTTP method
     pub fn method(self, method: Method, ep: impl Endpoint<S> + Send + Sync + 'static) -> Self {
@@ -101,9 +98,7 @@ where
     }
 }
 
-impl<S> App<S>
-where
-    S: Send + Sync + 'static,
+impl<S: State> App<S>
 {
     /// Create a new `App` with the given state.
     /// State must be `Send + Sync + 'static` because it gets shared by all route handlers.
@@ -181,9 +176,7 @@ where
 }
 
 #[async_trait]
-impl<S> Endpoint<S> for App<S>
-where
-    S: Send + Sync + 'static
+impl<S: State> Endpoint<S> for App<S>
 {
     async fn call(&self, mut req: Request<S>) -> Result<Response> {
         let path_rest = req.param("-highnoon-path-rest-")?;

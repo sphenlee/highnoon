@@ -3,6 +3,31 @@ use hyper::StatusCode;
 use serde_derive::Serialize;
 use tokio;
 use highnoon::filter::Next;
+use highnoon::filter::session;
+use std::sync::Arc;
+use highnoon::filter::session::{Session, HasSession};
+
+struct State;
+struct Context {
+    session: Arc<session::Session>
+}
+
+impl session::HasSession for Context {
+    fn session(&mut self) -> Arc<Session> {
+        Arc::clone(&self.session)
+    }
+}
+
+impl highnoon::State for State {
+    type Context = Context;
+
+    fn new_context(&self) -> Context {
+        Context {
+            session: Arc::new(Session::default())
+        }
+    }
+}
+
 
 #[derive(Serialize)]
 struct Sample {
@@ -13,8 +38,8 @@ struct Sample {
 struct AuthCheck;
 
 #[async_trait::async_trait]
-impl highnoon::filter::Filter<()> for AuthCheck {
-    async fn apply(&self, req: Request<()>, next: Next<'_, ()>) -> Result<Response> {
+impl highnoon::filter::Filter<State> for AuthCheck {
+    async fn apply(&self, req: Request<State>, next: Next<'_, State>) -> Result<Response> {
         let auth = req.header::<headers::Authorization<headers::authorization::Bearer>>();
 
         match auth {
@@ -27,7 +52,7 @@ impl highnoon::filter::Filter<()> for AuthCheck {
     }
 }
 
-fn error_example(req: &Request<()>) -> Result<()> {
+fn error_example(req: &Request<State>) -> Result<()> {
     let fail = req.param("fail")?.parse::<bool>()?;
 
     if fail {
@@ -40,25 +65,40 @@ fn error_example(req: &Request<()>) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    femme::start();
+    femme::with_level(femme::LevelFilter::Debug);
 
-    let mut app = App::new(());
+    let mut app = App::new(State);
 
-    app.with(highnoon::filter::log::Log);
+    app.with(highnoon::filter::Log);
+    let memstore = highnoon::filter::session::MemorySessionStore::new();
+    app.with(highnoon::filter::session::SessionFilter::new(memstore));
 
     app.at("/hello")
         .get(|_req| async { "Hello world!\n\n" })
-        .post(|mut req: Request<()>| async move {
+        .post(|mut req: Request<State>| async move {
             let bytes = req.body_bytes().await?;
             Ok(bytes)
         });
 
-    app.at("/echo/:name").get(|req: Request<()>| async move {
+    app.at("/echo/:name").get(|mut req: Request<State>| async move {
+        let seen = match req.session().get("seen") {
+            None => false,
+            Some(s) => s.parse()?
+        };
+
+        let greeting = if seen {
+            "Welcome back"
+        } else {
+            "Hello"
+        };
+
+        req.session().set("seen".to_owned(), "true".to_owned());
+
         let p = req.param("name");
-        match p {
-            Err(_) => "Hello anonymous\n\n".to_owned(),
-            Ok(name) => format!("Hello to {}\n\n", name),
-        }
+        Ok(match p {
+            Err(_) => format!("{} anonymous\n\n", greeting),
+            Ok(name) => format!("{} {}\n\n", greeting, name),
+        })
     });
 
     app.at("/json").get(|_req| async {
@@ -87,7 +127,7 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
-    let mut api = App::new(());
+    let mut api = App::new(State);
     api.with(AuthCheck);
 
     api.at("check").get(|req: Request<_>| async move {
@@ -108,7 +148,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn echo_stuff(mut req: Request<()>) -> Result<StatusCode> {
+async fn echo_stuff(mut req: Request<State>) -> Result<StatusCode> {
     let uri = req.uri();
     println!("URI: {}", uri);
 

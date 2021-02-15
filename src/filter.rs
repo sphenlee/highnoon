@@ -1,9 +1,10 @@
-use crate::{Request, Response, Result};
+use crate::{Request, Response, Result, State};
 use crate::endpoint::Endpoint;
 use async_trait::async_trait;
 use std::future::Future;
 
-pub mod log;
+mod log;
+pub mod session; // TODO - export the needed bits of this
 
 pub use self::log::Log;
 
@@ -18,9 +19,7 @@ where
     pub(crate) rest: &'a [Box<dyn Filter<S> + Send + Sync + 'static>],
 }
 
-impl<S> Next<'_, S>
-where
-    S: Send + Sync + 'static
+impl<S: State> Next<'_, S>
 {
     /// Call either the next filter in the chain, or the actual endpoint if there are no more
     /// filters. Filters are not required to call next (eg. to return a Forbidden status instead)
@@ -39,9 +38,7 @@ where
 /// Filters can call the `Next` argument to continue processing, or may return early to stop the
 /// chain. Filters can be used for logging, authentication, cookie handling and many other uses.
 #[async_trait]
-pub trait Filter<S>
-where
-    S: Send + Sync + 'static
+pub trait Filter<S: State>
 {
     async fn apply(&self, req: Request<S>, next: Next<'_, S>) -> Result<Response>;
 }
@@ -50,7 +47,7 @@ where
 #[async_trait]
 impl<S, F, Fut> Filter<S> for F
     where
-        S: Send + Sync + 'static,
+        S: State,
         F: Send + Sync + 'static + for<'n> Fn(Request<S>, Next<'n, S>) -> Fut,
         Fut: Send + 'static + Future<Output = Result<Response>>,
 {

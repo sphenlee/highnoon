@@ -5,6 +5,7 @@ use hyper::StatusCode;
 use log::{debug, warn};
 use std::marker::PhantomData;
 use std::path::{Component, PathBuf};
+use crate::state::State;
 
 pub(crate) struct StaticFiles<S>
 where
@@ -33,9 +34,7 @@ where
 }
 
 #[async_trait]
-impl<S> Endpoint<S> for StaticFiles<S>
-where
-    S: Send + Sync + 'static,
+impl<S: State> Endpoint<S> for StaticFiles<S>
 {
     async fn call(&self, req: Request<S>) -> Result<Response> {
         let path = PathBuf::from(req.uri().path());

@@ -3,6 +3,7 @@ use crate::{Request, Response, Result, Error};
 use async_trait::async_trait;
 
 use kv_log_macro::{debug, error, log, Level};
+use crate::state::State;
 
 /// A logging filter. Logs all requests at debug level, and logs responses at error, warn or info
 /// level depending on the status code (5xx, 4xx, and everything else)
@@ -26,9 +27,7 @@ fn log_response(method: String, uri: String, resp: &Response) {
 }
 
 #[async_trait]
-impl<S> Filter<S> for Log
-where
-    S: Send + Sync + 'static
+impl<S: State> Filter<S> for Log
 {
     async fn apply(&self, req: Request<S>, next: Next<'_, S>) -> Result<Response> {
         let method = req.method().to_string();

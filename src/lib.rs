@@ -10,11 +10,13 @@ pub mod request;
 pub mod responder;
 pub mod response;
 pub mod router;
+pub mod state;
 mod static_files;
 pub mod ws;
 pub mod filter;
 
 pub use app::App;
+pub use state::State;
 //pub use endpoint::Endpoint;
 pub use error::Error;
 pub use request::Request;

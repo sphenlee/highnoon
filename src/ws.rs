@@ -10,6 +10,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
+use crate::state::State;
 
 /// An endpoint for accepting a websocket connection.
 /// Typically constructed by the `Route::ws` method.
@@ -41,7 +42,7 @@ where
 #[async_trait]
 impl<H, F, S> Endpoint<S> for WsEndpoint<H, F, S>
 where
-    S: Send + Sync + 'static,
+    S: State,
     H: Send + Sync + 'static + Fn(WebSocket) -> F,
     F: Future<Output = Result<()>> + Send + 'static,
 {
@@ -56,7 +57,7 @@ where
 
 async fn upgrade_connection<S, H, F>(req: Request<S>, handler: Arc<H>) -> Response
 where
-    S: Send + Sync + 'static,
+    S: State,
     H: Send + Sync + 'static + Fn(WebSocket) -> F,
     F: Future<Output = Result<()>> + Send + 'static,
 {

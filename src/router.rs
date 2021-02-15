@@ -3,6 +3,7 @@ use crate::endpoint::Endpoint;
 use hyper::{Method, StatusCode};
 use route_recognizer::Params;
 use std::collections::HashMap;
+use crate::state::State;
 
 type DynEndpoint<S> = dyn Endpoint<S> + Send + Sync + 'static;
 
@@ -21,9 +22,7 @@ where
     pub(crate) params: Params,
 }
 
-impl<S> Router<S>
-where
-    S: Send + Sync + 'static,
+impl<S: State> Router<S>
 {
     pub(crate) fn new() -> Self {
         Self {
@@ -82,10 +81,10 @@ where
     }
 }
 
-async fn method_not_allowed<S: Sync + 'static>(_: Request<S>) -> impl Responder {
+async fn method_not_allowed<S: State>(_: Request<S>) -> impl Responder {
     StatusCode::METHOD_NOT_ALLOWED
 }
 
-async fn not_found<S: Sync + 'static>(_: Request<S>) -> impl Responder {
+async fn not_found<S: State>(_: Request<S>) -> impl Responder {
     StatusCode::NOT_FOUND
 }

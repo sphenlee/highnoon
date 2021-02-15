@@ -7,24 +7,29 @@ use serde::de::DeserializeOwned;
 use std::io::Read;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use crate::state::State;
+use cookie::{Cookie, CookieJar};
 
 /// An incoming request
-pub struct Request<S: Sync + 'static> {
+pub struct Request<S: State> {
     app: Arc<App<S>>,
+    ctx: S::Context,
     params: Params,
     inner: hyper::Request<Body>,
     remote_addr: SocketAddr,
 }
 
-impl<S: Send + Sync + 'static> Request<S> {
+impl<S: State> Request<S> {
     pub(crate) fn new(
         app: Arc<App<S>>,
         inner: hyper::Request<Body>,
         params: Params,
         remote_addr: SocketAddr,
     ) -> Self {
+        let ctx = app.state().new_context();
         Self {
             app,
+            ctx,
             inner,
             params,
             remote_addr,
@@ -40,6 +45,16 @@ impl<S: Send + Sync + 'static> Request<S> {
     /// Get a reference to the `App`'s state
     pub fn state(&self) -> &S {
         self.app.state()
+    }
+
+    /// Get a reference to this request's context
+    pub fn context(&self) -> &S::Context {
+        &self.ctx
+    }
+
+    /// Get a reference to this request's context
+    pub fn context_mut(&mut self) -> &mut S::Context {
+        &mut self.ctx
     }
 
     /// Get the HTTP method being used by this request
@@ -74,6 +89,19 @@ impl<S: Send + Sync + 'static> Request<S> {
     pub fn headers(&self) -> &HeaderMap<HeaderValue> {
         self.inner.headers()
     }
+
+    /// Get the request's cookies
+    pub fn cookies(&self) -> Result<CookieJar> {
+        let mut cookies = CookieJar::new();
+
+        for val in self.inner.headers().get_all(headers::Cookie::name()) {
+            let c = Cookie::parse(val.to_str()?)?;
+            cookies.add(c.into_owned());
+        }
+
+        Ok(cookies)
+    }
+
 
     /// Get a route parameter (eg. `:key` or `*key` segments in the URI path)
     ///

@@ -1,6 +1,7 @@
 use crate::{Request, Responder, Response, Result};
 use async_trait::async_trait;
 use std::future::Future;
+use crate::state::State;
 
 pub type DynEndpoint<S> = dyn Endpoint<S> + Send + Sync + 'static;
 
@@ -10,9 +11,7 @@ pub type DynEndpoint<S> = dyn Endpoint<S> + Send + Sync + 'static;
 /// which is the simplest (and most convenient) kind of handler.
 /// You can implement it manually for endpoints that may require some kind of local state.
 #[async_trait]
-pub trait Endpoint<S>
-where
-    S: Send + Sync + 'static,
+pub trait Endpoint<S: State>
 {
     async fn call(&self, req: Request<S>) -> Result<Response>;
 }
@@ -23,7 +22,7 @@ where
     F: Send + Sync + 'static + Fn(Request<S>) -> Fut,
     Fut: Future<Output = R> + Send + 'static,
     R: Responder + 'static,
-    S: Send + Sync + 'static,
+    S: State,
 {
     async fn call(&self, req: Request<S>) -> Result<Response> {
         (self)(req).await.into_response()
