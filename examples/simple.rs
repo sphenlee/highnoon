@@ -7,19 +7,22 @@ use highnoon::filter::session;
 use highnoon::filter::session::{Session, HasSession};
 
 #[derive(Default)]
-struct State {
+struct State;
+
+#[derive(Default)]
+struct Context {
     session: session::Session
 }
 
 impl highnoon::State for State {
-    fn instantiate(&self) -> State {
-        State {
-            session: Session::default()
-        }
+    type Context = Context;
+
+    fn new_context(&self) -> Context {
+        Context::default()
     }
 }
 
-impl session::HasSession for State {
+impl session::HasSession for Context {
     fn session(&mut self) -> &mut Session {
         &mut self.session
     }

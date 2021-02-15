@@ -149,17 +149,19 @@ pub trait HasSession {
 /// Implement HasSession on requests where the State has sessions
 impl<S> HasSession for Request<S>
 where
-    S: State + HasSession
+    S: State,
+    S::Context: HasSession,
 {
     fn session(&mut self) -> &mut Session {
-        self.state_mut().session()
+        self.context_mut().session()
     }
 }
 
 #[async_trait]
 impl<S> Filter<S> for SessionFilter
 where
-    S: State + HasSession
+    S: State,
+    S::Context: HasSession,
 {
     async fn apply(&self, mut req: Request<S>, next: Next<'_, S>) -> Result<Response> {
         let session = Arc::clone(&req.session().inner);

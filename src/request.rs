@@ -12,8 +12,8 @@ use cookie::{Cookie, CookieJar};
 
 /// An incoming request
 pub struct Request<S: State> {
-    //app: Arc<App<S>>,
-    state: S,
+    app: Arc<App<S>>,
+    context: S::Context,
     params: Params,
     inner: hyper::Request<Body>,
     remote_addr: SocketAddr,
@@ -26,8 +26,10 @@ impl<S: State> Request<S> {
         params: Params,
         remote_addr: SocketAddr,
     ) -> Self {
+        let context = app.state().new_context();
         Self {
-            state: app.state().instantiate(),
+            app,
+            context,
             inner,
             params,
             remote_addr,
@@ -40,14 +42,19 @@ impl<S: State> Request<S> {
         }
     }
 
-    /// Get a reference to the request's state
-    pub fn state(&mut self) -> &S {
-        &self.state
+    /// Get a reference to the App's state
+    pub fn state(&self) -> &S {
+        self.app.state()
     }
 
-    /// Get a mut reference to the request's state
-    pub fn state_mut(&mut self) -> &mut S {
-        &mut self.state
+    /// Get a reference to the request's context
+    pub fn context(&mut self) -> &S::Context {
+        &self.context
+    }
+
+    /// Get a mut reference to the request's context
+    pub fn context_mut(&mut self) -> &mut S::Context {
+        &mut self.context
     }
 
     /// Get the HTTP method being used by this request
