@@ -48,7 +48,7 @@ impl<S: State> Filter<S> for Log
                     method: method,
                     uri: uri,
                     error: err.to_string(),
-                    backtrace: err.backtrace().to_string(),
+                    backtrace: format!("{:?}", err),
                 });
             }
         }
