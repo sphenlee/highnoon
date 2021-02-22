@@ -1,6 +1,6 @@
 [package]
 name = "highnoon"
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Steve Lee <sphen.lee@gmail.com>"]
 edition = "2018"
 
@@ -17,7 +17,7 @@ categories = ["web-programming::http-server"]
 anyhow = "1.0"
 async-trait = "0.1"
 bytes = "1.0"
-cookie = "0.14"
+cookie = { version = "0.14", features = ["signed"] }
 futures-util = "0.3"
 hyper = { version = "0.14", features = ["server", "http1", "http2", "runtime", "tcp", "stream"] }
 headers = "0.3"
@@ -32,6 +32,7 @@ serde_urlencoded = "0.7"
 tokio = { version = "1.0", features = ["rt-multi-thread", "net", "macros", "io-util", "fs"] }
 tokio-tungstenite = "0.13"
 tokio-util = { version = "0.6", features = ["io"] }
+uuid = { version = "0.8.2", features = ["v4"]}
 
 
 [dev-dependencies]

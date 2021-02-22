@@ -5,13 +5,15 @@ use tokio;
 use highnoon::filter::Next;
 use highnoon::filter::session;
 use highnoon::filter::session::{Session, HasSession};
+use headers::authorization::{Authorization, Bearer};
 
 #[derive(Default)]
 struct State;
 
 #[derive(Default)]
 struct Context {
-    session: session::Session
+    session: session::Session,
+    token: Option<String>
 }
 
 impl highnoon::State for State {
@@ -39,13 +41,14 @@ struct AuthCheck;
 
 #[async_trait::async_trait]
 impl highnoon::filter::Filter<State> for AuthCheck {
-    async fn apply(&self, req: Request<State>, next: Next<'_, State>) -> Result<Response> {
-        let auth = req.header::<headers::Authorization<headers::authorization::Bearer>>();
+    async fn apply(&self, mut req: Request<State>, next: Next<'_, State>) -> Result<Response> {
+        let auth = req.header::<Authorization<Bearer>>();
 
         match auth {
             None => return Ok(Response::status(StatusCode::UNAUTHORIZED)),
             Some(bearer) => {
                 log::info!("got bearer token: {}", bearer.0.token());
+                req.context_mut().token = Some(bearer.0.token().to_owned());
                 next.next(req).await
             }
         }
@@ -71,7 +74,8 @@ async fn main() -> Result<()> {
 
     app.with(highnoon::filter::Log);
     let memstore = highnoon::filter::session::MemorySessionStore::new();
-    app.with(highnoon::filter::session::SessionFilter::new(memstore));
+    app.with(highnoon::filter::session::SessionFilter::new(memstore)
+        .with_cookie_name("simple_sid"));
 
     app.at("/hello")
         .get(|_req| async { "Hello world!\n\n" })
@@ -132,8 +136,9 @@ async fn main() -> Result<()> {
     let mut api = App::new(State::default());
     api.with(AuthCheck);
 
-    api.at("check").get(|req: Request<_>| async move {
+    api.at("check").get(|req: Request<State>| async move {
         println!("URI: {}", req.uri());
+        println!("Bearer: {:?}", req.context().token);
         StatusCode::OK
     });
     api.at("user/:name").get(|req: Request<_>| async move {

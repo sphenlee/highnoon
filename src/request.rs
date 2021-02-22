@@ -48,7 +48,7 @@ impl<S: State> Request<S> {
     }
 
     /// Get a reference to the request's context
-    pub fn context(&mut self) -> &S::Context {
+    pub fn context(&self) -> &S::Context {
         &self.context
     }
 

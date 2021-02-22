@@ -11,6 +11,8 @@ use std::sync::Mutex;
 use tokio::sync::Mutex as AsyncMutex;
 use headers::{Header, SetCookie};
 use cookie::Cookie;
+use std::borrow::Cow;
+use uuid::Uuid;
 
 /// Trait for session storage
 #[async_trait]
@@ -63,10 +65,13 @@ impl SessionStore for MemorySessionStore {
     }
 }
 
-/// A filter for implementaing basic session support
+const DEFAULT_COOKIE_NAME: &str = "sid";
+
+/// A filter for implementing basic session support
 ///
-/// This filter requires that the App's State implements HasSession
+/// This filter requires that the Context implements HasSession
 pub struct SessionFilter {
+    cookie_name: Cow<'static, str>,
     store: AsyncMutex<Box<dyn SessionStore + Send + Sync + 'static>>,
 }
 
@@ -74,8 +79,14 @@ impl SessionFilter {
     /// Create a new session filter using the provided store
     pub fn new(store: impl SessionStore + Send + Sync + 'static) -> SessionFilter {
         SessionFilter {
+            cookie_name: Cow::Borrowed(DEFAULT_COOKIE_NAME),
             store: AsyncMutex::new(Box::new(store))
         }
+    }
+
+    pub fn with_cookie_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
+        self.cookie_name = name.into();
+        self
     }
 }
 
@@ -139,14 +150,14 @@ impl Session {
     }
 }
 
-/// This trait must be implemented by the App's State type in order to use the
+/// This trait must be implemented by the Context type in order to use the
 /// SessionFilter
 pub trait HasSession {
     /// Get a reference to the Session for this current request
     fn session(&mut self) -> &mut Session;
 }
 
-/// Implement HasSession on requests where the State has sessions
+/// Implement HasSession on requests where the Context has sessions
 impl<S> HasSession for Request<S>
 where
     S: State,
@@ -166,10 +177,9 @@ where
     async fn apply(&self, mut req: Request<S>, next: Next<'_, S>) -> Result<Response> {
         let session = Arc::clone(&req.session().inner);
 
-        // TODO - pick the cookie name
         let maybe_sid = req
             .cookies()?
-            .get("sid")
+            .get(self.cookie_name.as_ref())
             .map(|c| c.value().to_owned());
 
         let sid = if let Some(sid) = maybe_sid {
@@ -184,7 +194,7 @@ where
             sid
         } else {
             debug!("request has no session cookie");
-            "cookie!".to_owned()
+            Uuid::new_v4().to_string()
         };
 
         let mut resp = next.next(req).await?;
@@ -199,7 +209,7 @@ where
             };
 
             // TODO expires etc..
-            let cookie = Cookie::new("sid", &sid).to_string();
+            let cookie = Cookie::new(self.cookie_name.as_ref(), &sid).to_string();
             let header = headers::HeaderValue::from_str(&cookie)?;
             resp.set_header(SetCookie::decode(&mut vec![&header].into_iter())?);
 
