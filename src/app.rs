@@ -5,7 +5,7 @@ use crate::ws::WebSocket;
 use crate::endpoint::Endpoint;
 use crate::{Responder, Request, Result, Response};
 use crate::filter::{Filter, Next};
-use hyper::server::conn::AddrStream;
+use hyper::server::conn::{AddrStream, AddrIncoming};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method};
 use log::info;
@@ -15,6 +15,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::net::ToSocketAddrs;
 use async_trait::async_trait;
+use hyper::server::Builder;
 
 /// The main entry point to highnoon. An `App` can be launched as a server
 /// or mounted into another `App`.
@@ -134,28 +135,39 @@ impl<S: State> App<S>
     /// Start a server listening on the given address (See `ToSocketAddrs` from tokio)
     /// This method only returns if there is an error. (Graceful shutdown is TODO)
     pub async fn listen(self, host: impl ToSocketAddrs) -> anyhow::Result<()> {
-        let app = Arc::new(self);
 
         let mut addrs = tokio::net::lookup_host(host).await?;
         let addr = addrs
             .next()
             .ok_or_else(|| anyhow::Error::msg("host lookup returned no hosts"))?;
 
-        let server = hyper::Server::bind(&addr);
+        let builder = hyper::Server::try_bind(&addr)?;
+        self.internal_serve(builder).await
+    }
+
+    /// Start a server listening on the provided `TcpListener`
+    /// This method only returns if there is an error. (Graceful shutdown is TODO)
+    pub async fn listen_on(self, tcp: std::net::TcpListener) -> anyhow::Result<()> {
+        let builder = hyper::Server::from_tcp(tcp)?;
+        self.internal_serve(builder).await
+    }
+
+    async fn internal_serve(self, builder: Builder<AddrIncoming>) -> anyhow::Result<()> {
+        let app = Arc::new(self);
 
         let make_svc = make_service_fn(|addr_stream: &AddrStream| {
-            let app = Arc::clone(&app);
+            let app = app.clone();
             let addr = addr_stream.remote_addr();
 
             async move {
                 Ok::<_, Infallible>(service_fn(move |req: hyper::Request<Body>| {
-                    let app = Arc::clone(&app);
+                    let app = app.clone();
 
                     async move {
                         let RouteTarget { ep, params } =
                             app.routes.lookup(req.method(), req.uri().path());
 
-                        let req = Request::new(Arc::clone(&app), req, params, addr);
+                        let req = Request::new(app.clone(), req, params, addr);
 
                         let next = Next { ep, rest: &*app.filters };
 
@@ -169,8 +181,9 @@ impl<S: State> App<S>
             }
         });
 
-        info!("server listening on {}", addr);
-        server.serve(make_svc).await?;
+        let server = builder.serve(make_svc);
+        info!("server listening on {}", server.local_addr());
+        server.await?;
         Ok(())
     }
 }

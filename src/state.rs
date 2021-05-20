@@ -10,11 +10,11 @@ pub trait State: Send + Sync + 'static {
     /// Type of the request local context
     type Context: Send + Sync + 'static;
 
-    /// Instantiate the State object, creating a new one to be used for a single request
+    /// Creating a new Context to be used for a single request
     fn new_context(&self) -> Self::Context;
 }
 
-/// implement state for all types already meeting the constraints
+/// Implement state for void
 impl State for ()
 {
     type Context = ();
