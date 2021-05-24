@@ -65,27 +65,52 @@ impl SessionStore for MemorySessionStore {
     }
 }
 
-const DEFAULT_COOKIE_NAME: &str = "sid";
+pub const DEFAULT_COOKIE_NAME: &str = "sid";
+
+type DynCookieCallback = dyn Fn(&mut Cookie) + Send + Sync + 'static;
 
 /// A filter for implementing basic session support
 ///
 /// This filter requires that the Context implements HasSession
 pub struct SessionFilter {
     cookie_name: Cow<'static, str>,
+    expiry: time::Duration,
+    cookie_callback: Option<Box<DynCookieCallback>>,
     store: AsyncMutex<Box<dyn SessionStore + Send + Sync + 'static>>,
 }
 
 impl SessionFilter {
     /// Create a new session filter using the provided store
+    /// The default cookie name is [DEFAULT_COOKIE_NAME] and expiry is set to one hour
     pub fn new(store: impl SessionStore + Send + Sync + 'static) -> SessionFilter {
         SessionFilter {
             cookie_name: Cow::Borrowed(DEFAULT_COOKIE_NAME),
+            expiry: time::Duration::hour(),
+            cookie_callback: None,
             store: AsyncMutex::new(Box::new(store))
         }
     }
 
+    /// Set the name of the cookie used to store the session ID
     pub fn with_cookie_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.cookie_name = name.into();
+        self
+    }
+
+    /// Set the expiry time set on the session ID cookie
+    pub fn with_expiry(mut self, expiry: time::Duration) -> Self {
+        self.expiry = expiry;
+        self
+    }
+
+    /// Set a callback function to be used to customise the session ID cookie.
+    /// The callback is called with the cookie before it is stored in the headers so you can change
+    /// most settings (changing the name or value of the cookie may prevent sessions from working,
+    /// so only change settings like same site, secure, etc...)
+    pub fn with_callback<F>(mut self, callback: F) -> Self
+    where F: Fn(&mut Cookie) + Send + Sync + 'static
+    {
+        self.cookie_callback = Some(Box::new(callback));
         self
     }
 }
@@ -208,10 +233,19 @@ where
                 serde_urlencoded::to_string(&*data)?
             };
 
-            // TODO expires etc..
-            let cookie = Cookie::new(self.cookie_name.as_ref(), &sid).to_string();
-            let header = headers::HeaderValue::from_str(&cookie)?;
-            resp.set_header(SetCookie::decode(&mut vec![&header].into_iter())?);
+            let mut cookie = Cookie::new(self.cookie_name.as_ref(), &sid);
+            cookie.set_http_only(true);
+            cookie.set_secure(true);
+            cookie.set_same_site(cookie::SameSite::Strict);
+
+            let expiry = time::OffsetDateTime::now_utc() + self.expiry;
+            cookie.set_expires(expiry);
+
+            if let Some(ref callback) = self.cookie_callback {
+                callback(&mut cookie);
+            }
+
+            resp.set_raw_header(SetCookie::name(), cookie.to_string())?;
 
             store.set(sid, raw_data).await;
         }

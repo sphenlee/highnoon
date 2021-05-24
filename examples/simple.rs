@@ -75,7 +75,13 @@ async fn main() -> Result<()> {
     app.with(highnoon::filter::Log);
     let memstore = highnoon::filter::session::MemorySessionStore::new();
     app.with(highnoon::filter::session::SessionFilter::new(memstore)
-        .with_cookie_name("simple_sid"));
+        .with_cookie_name("simple_sid")
+        .with_expiry(time::Duration::minutes(5))
+        .with_callback(|cookie| {
+            // for demo purposes - default is secure cookies
+            cookie.set_secure(false);
+        }))
+        ;
 
     app.at("/hello")
         .get(|_req| async { "Hello world!\n\n" })

@@ -15,6 +15,7 @@ use serde::Serialize;
 use std::path::Path;
 use tokio::io::AsyncRead;
 use tokio_util::io::ReaderStream;
+use std::convert::TryInto;
 
 /// A response to be returned to the client.
 /// You do not always need to use this struct directly as endpoints can
@@ -110,9 +111,25 @@ impl Response {
     }
 
     /// Set a raw header (from the `http` crate)
-    pub fn raw_header(mut self, name: impl Into<HeaderName>, key: impl Into<HeaderValue>) -> Self {
-        self.inner.headers_mut().insert(name.into(), key.into());
-        self
+    pub fn raw_header<N, K>(mut self, name: N, key: K) -> Result<Self>
+        where N: TryInto<HeaderName>,
+              K: TryInto<HeaderValue>,
+              <N as TryInto<HeaderName>>::Error: Into<anyhow::Error>,
+              <K as TryInto<HeaderValue>>::Error: Into<anyhow::Error>,
+    {
+        self.set_raw_header(name, key)?;
+        Ok(self)
+    }
+
+    /// Set a raw header (without consuming self)
+    pub fn set_raw_header<N, K>(&mut self, name: N, key: K) -> Result<()>
+    where N: TryInto<HeaderName>,
+        K: TryInto<HeaderValue>,
+        <N as TryInto<HeaderName>>::Error: Into<anyhow::Error>,
+          <K as TryInto<HeaderValue>>::Error: Into<anyhow::Error>,
+    {
+        self.inner.headers_mut().insert(name.try_into()?, key.try_into()?);
+        Ok(())
     }
 
     /// Consume this response and return the inner `hyper::Response`
