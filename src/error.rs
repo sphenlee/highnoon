@@ -11,7 +11,7 @@ use std::fmt::Formatter;
 /// errors are logged (if you enable the logging filter) and converted to a 500 Internal Server Error
 /// with no other details.
 ///
-/// HTTP level error should be created with the `http` methods (which accepts a `Responder` rather tnan
+/// HTTP level error should be created with the `http` methods (which accepts a `Responder` rather than
 /// just `Response`) and Internal errors should be created with the `From`/`Into` implementation.
 pub enum Error {
     /// An error that should get returned to the client
@@ -37,6 +37,12 @@ impl Error {
             Ok(r) => Self::Http(r),
             Err(e) => e
         }
+    }
+
+    /// Create a 400 Bad Request Error from a `Responder` - this method is similar to [Error::http]
+    /// but it also sets the status code
+    pub fn bad_request(resp: impl Responder) -> Self {
+        Self::http((StatusCode::BAD_REQUEST, resp))
     }
 }
 

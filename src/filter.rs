@@ -1,3 +1,7 @@
+/// Filters are reusable bits of logic that wrap endpoints.
+///
+/// (These are sometimes called "middleware" in other frameworks).
+
 use crate::{Request, Response, Result, State};
 use crate::endpoint::Endpoint;
 use async_trait::async_trait;

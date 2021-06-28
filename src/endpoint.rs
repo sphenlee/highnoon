@@ -1,9 +1,11 @@
+/// Exposes the `Endpoint` trait if you want to implement it for custom types.
+///
+/// This is not usually necessary since it's implemented for function types already.
+
 use crate::{Request, Responder, Response, Result};
 use async_trait::async_trait;
 use std::future::Future;
 use crate::state::State;
-
-pub type DynEndpoint<S> = dyn Endpoint<S> + Send + Sync + 'static;
 
 /// Implement `Endpoint` for a type to be used as a method handler.
 ///

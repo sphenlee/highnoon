@@ -4,10 +4,10 @@ pub use mime::Mime;
 pub use tokio_tungstenite::tungstenite::Message;
 
 mod app;
-pub mod endpoint;
+mod endpoint;
 mod error;
 mod request;
-pub mod responder;
+mod responder;
 mod response;
 mod router;
 mod state;
@@ -18,8 +18,9 @@ pub mod filter;
 pub use app::App;
 pub use state::State;
 pub use error::Error;
+pub use endpoint::Endpoint;
 pub use request::Request;
-pub use responder::{Json, Responder};
+pub use responder::{Json, Responder, Form};
 pub use response::Response;
 
 pub type Result<T> = std::result::Result<T, Error>;
