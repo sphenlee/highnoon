@@ -2,7 +2,7 @@ use crate::{Request, Response, Result};
 use crate::endpoint::Endpoint;
 use async_trait::async_trait;
 use hyper::StatusCode;
-use log::{debug, warn};
+use tracing::{debug, warn};
 use std::marker::PhantomData;
 use std::path::{Component, PathBuf};
 use crate::state::State;

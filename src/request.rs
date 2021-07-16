@@ -9,6 +9,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use crate::state::State;
 use cookie::{Cookie, CookieJar};
+use tracing::error;
 
 /// An incoming request
 pub struct Request<S: State> {
@@ -108,7 +109,7 @@ impl<S: State> Request<S> {
     /// If the parameter is not present, logs an error and returns a `400 Bad Request` to the client
     pub fn param(&self, param: &str) -> Result<&str> {
         self.params.find(param).ok_or_else(|| {
-            log::error!("parameter {} not found", param);
+            error!("parameter {} not found", param);
             Error::http(StatusCode::BAD_REQUEST)
         })
     }
@@ -156,7 +157,7 @@ impl<S: State> Request<S> {
         let reader = self.reader().await?;
         serde_json::from_reader(reader).map_err(|err| {
             let msg = format!("error parsing request body as json: {}", err);
-            log::error!("{}", msg);
+            error!("{}", msg);
             Error::http((StatusCode::BAD_REQUEST, msg))
         })
     }

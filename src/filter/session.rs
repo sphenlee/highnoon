@@ -2,7 +2,7 @@ use crate::filter::{Filter, Next};
 use crate::{Request, Response, Result};
 
 use async_trait::async_trait;
-use kv_log_macro::debug;
+use tracing::debug;
 use crate::state::State;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -43,24 +43,17 @@ impl MemorySessionStore {
 #[async_trait]
 impl SessionStore for MemorySessionStore {
     async fn get<'s>(&'s self, id: &str) -> Option<&'s str> {
-        debug!("memory store get", {
-            id: id
-        });
+        debug!(id, "memory store get");
         self.data.get(id).map(AsRef::as_ref)
     }
 
     async fn set(&mut self, id: String, value: String) {
-        debug!("memory store set", {
-            id: id,
-            value: value
-        });
+        debug!(%id, %value, "memory store set");
         self.data.insert(id, value);
     }
 
     async fn clear(&mut self, id: &str) {
-        debug!("memory store clear", {
-            id: id
-        });
+        debug!(id, "memory store clear");
         self.data.remove(id);
     }
 }
@@ -129,18 +122,13 @@ pub struct Session {
 
 impl SessionInner {
     fn get(&self, key: &str) -> Option<String> {
-        debug!("session get", {
-            key: key
-        });
+        debug!(key, "session get");
         let data = self.data.lock().unwrap();
         data.get(key).cloned()
     }
 
     fn set(&self, key: String, value: String) {
-        debug!("session set", {
-            key: key,
-            value: value,
-        });
+        debug!(%key, %value, "session set");
         self.data.lock().unwrap().insert(key, value);
         self.modified.store(true, Ordering::Relaxed);
     }
@@ -208,9 +196,7 @@ where
             .map(|c| c.value().to_owned());
 
         let sid = if let Some(sid) = maybe_sid {
-            debug!("request has session cookie", {
-                sid: sid
-            });
+            debug!(%sid, "request has session cookie");
 
             let store = self.store.lock().await;
             let raw_data = store.get(&sid).await.unwrap_or("");

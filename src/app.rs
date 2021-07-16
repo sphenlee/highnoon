@@ -8,7 +8,7 @@ use crate::filter::{Filter, Next};
 use hyper::server::conn::{AddrStream, AddrIncoming};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method};
-use log::info;
+use tracing::info;
 use std::convert::Infallible;
 use std::future::Future;
 use std::path::PathBuf;

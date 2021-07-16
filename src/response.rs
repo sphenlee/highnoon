@@ -10,7 +10,7 @@ use crate::Result;
 use headers::{Header, HeaderMapExt};
 use hyper::header::{HeaderName, HeaderValue};
 use hyper::{Body, StatusCode};
-use log::debug;
+use tracing::debug;
 use serde::Serialize;
 use std::path::Path;
 use tokio::io::AsyncRead;

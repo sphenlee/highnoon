@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use futures_util::{SinkExt, TryStreamExt};
 use hyper::upgrade::Upgraded;
 use hyper::StatusCode;
-use log::trace;
+use tracing::trace;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::sync::Arc;

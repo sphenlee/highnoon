@@ -6,6 +6,7 @@ use highnoon::filter::Next;
 use highnoon::filter::session;
 use highnoon::filter::session::{Session, HasSession};
 use headers::authorization::{Authorization, Bearer};
+use tracing::info;
 
 #[derive(Default)]
 struct State;
@@ -47,7 +48,7 @@ impl highnoon::filter::Filter<State> for AuthCheck {
         match auth {
             None => return Ok(Response::status(StatusCode::UNAUTHORIZED)),
             Some(bearer) => {
-                log::info!("got bearer token: {}", bearer.0.token());
+                info!("got bearer token: {}", bearer.0.token());
                 req.context_mut().token = Some(bearer.0.token().to_owned());
                 next.next(req).await
             }
@@ -68,7 +69,7 @@ fn error_example(req: &Request<State>) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    femme::with_level(femme::LevelFilter::Debug);
+    tracing_subscriber::fmt::init();
 
     let mut app = App::new(State::default());
 

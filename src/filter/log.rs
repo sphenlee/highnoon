@@ -2,7 +2,7 @@ use crate::filter::{Filter, Next};
 use crate::{Request, Response, Result, Error};
 use async_trait::async_trait;
 
-use kv_log_macro::{debug, error, log, Level};
+use tracing::{debug, error, warn, info};
 use crate::state::State;
 
 /// A logging filter. Logs all requests at debug level, and logs responses at error, warn or info
@@ -11,19 +11,13 @@ pub struct Log;
 
 fn log_response(method: String, uri: String, resp: &Response) {
     let status = resp.as_ref().status();
-    let level = if status.is_server_error() {
-        Level::Error
+    if status.is_server_error() {
+        error!(%method, %uri, %status, "response");
     } else if status.is_client_error() {
-        Level::Warn
+        warn!(%method, %uri, %status, "response");
     } else {
-        Level::Info
-    };
-
-    log!(level, "response", {
-        method: method,
-        uri: uri,
-        status: status.to_string(),
-    });
+        info!(%method, %uri, %status, "response");
+    }
 }
 
 #[async_trait]
@@ -33,10 +27,7 @@ impl<S: State> Filter<S> for Log
         let method = req.method().to_string();
         let uri = req.uri().to_string();
 
-        debug!("request", {
-            method: method,
-            uri: uri,
-        });
+        debug!(%method, %uri, "request");
 
         let result = next.next(req).await;
 
@@ -44,12 +35,12 @@ impl<S: State> Filter<S> for Log
             Ok(resp) => log_response(method, uri, resp),
             Err(Error::Http(resp)) => log_response(method, uri, resp),
             Err(Error::Internal(err)) => {
-                error!("internal server error", {
-                    method: method,
-                    uri: uri,
-                    error: err.to_string(),
-                    backtrace: format!("{:?}", err),
-                });
+                error!(%method,
+                    %uri,
+                    error=%err,
+                    backtrace=?err,
+                   "internal server error"
+                );
             }
         }
 
