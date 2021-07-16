@@ -1,6 +1,10 @@
 Highnoon
 ========
 
+[![crates.io](https://img.shields.io/crates/v/highnoon.svg)](https://crates.io/crates/highnoon)
+[![API docs](https://docs.rs/highnoon/badge.svg)](https://docs.rs/highnoon)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
 A minimal web framework built on Hyper
 
 **This is a very early development release.
