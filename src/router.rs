@@ -1,9 +1,9 @@
-use crate::{Request, Responder};
 use crate::endpoint::Endpoint;
+use crate::state::State;
+use crate::{Request, Responder};
 use hyper::{Method, StatusCode};
 use route_recognizer::Params;
 use std::collections::HashMap;
-use crate::state::State;
 
 type DynEndpoint<S> = dyn Endpoint<S> + Send + Sync + 'static;
 
@@ -22,8 +22,7 @@ where
     pub(crate) params: Params,
 }
 
-impl<S: State> Router<S>
-{
+impl<S: State> Router<S> {
     pub(crate) fn new() -> Self {
         Self {
             methods: HashMap::new(),

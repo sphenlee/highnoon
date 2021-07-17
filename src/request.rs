@@ -1,4 +1,6 @@
+use crate::state::State;
 use crate::{App, Error, Result};
+use cookie::{Cookie, CookieJar};
 use headers::{Header, HeaderMapExt};
 use hyper::header::HeaderValue;
 use hyper::{body::Buf, Body, HeaderMap, StatusCode};
@@ -7,8 +9,6 @@ use serde::de::DeserializeOwned;
 use std::io::Read;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use crate::state::State;
-use cookie::{Cookie, CookieJar};
 use tracing::error;
 
 /// An incoming request
@@ -102,7 +102,6 @@ impl<S: State> Request<S> {
 
         Ok(cookies)
     }
-
 
     /// Get a route parameter (eg. `:key` or `*key` segments in the URI path)
     ///

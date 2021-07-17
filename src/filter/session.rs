@@ -1,17 +1,17 @@
 use crate::filter::{Filter, Next};
 use crate::{Request, Response, Result};
 
-use async_trait::async_trait;
-use tracing::debug;
 use crate::state::State;
+use async_trait::async_trait;
+use cookie::Cookie;
+use headers::{Header, SetCookie};
+use std::borrow::Cow;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::sync::Mutex as AsyncMutex;
-use headers::{Header, SetCookie};
-use cookie::Cookie;
-use std::borrow::Cow;
+use tracing::debug;
 use uuid::Uuid;
 
 /// Trait for session storage
@@ -80,7 +80,7 @@ impl SessionFilter {
             cookie_name: Cow::Borrowed(DEFAULT_COOKIE_NAME),
             expiry: time::Duration::hour(),
             cookie_callback: None,
-            store: AsyncMutex::new(Box::new(store))
+            store: AsyncMutex::new(Box::new(store)),
         }
     }
 
@@ -101,7 +101,8 @@ impl SessionFilter {
     /// most settings (changing the name or value of the cookie may prevent sessions from working,
     /// so only change settings like same site, secure, etc...)
     pub fn with_callback<F>(mut self, callback: F) -> Self
-    where F: Fn(&mut Cookie) + Send + Sync + 'static
+    where
+        F: Fn(&mut Cookie) + Send + Sync + 'static,
     {
         self.cookie_callback = Some(Box::new(callback));
         self
@@ -117,7 +118,7 @@ struct SessionInner {
 /// A session
 #[derive(Default)]
 pub struct Session {
-    inner: Arc<SessionInner>
+    inner: Arc<SessionInner>,
 }
 
 impl SessionInner {
@@ -200,7 +201,7 @@ where
 
             let store = self.store.lock().await;
             let raw_data = store.get(&sid).await.unwrap_or("");
-            let data= serde_urlencoded::from_str(raw_data)?;
+            let data = serde_urlencoded::from_str(raw_data)?;
             session.load(data);
             sid
         } else {

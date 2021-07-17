@@ -1,11 +1,11 @@
-use crate::{Request, Response, Result};
 use crate::endpoint::Endpoint;
+use crate::state::State;
+use crate::{Request, Response, Result};
 use async_trait::async_trait;
 use hyper::StatusCode;
-use tracing::{debug, warn};
 use std::marker::PhantomData;
 use std::path::{Component, PathBuf};
-use crate::state::State;
+use tracing::{debug, warn};
 
 pub(crate) struct StaticFiles<S>
 where
@@ -34,8 +34,7 @@ where
 }
 
 #[async_trait]
-impl<S: State> Endpoint<S> for StaticFiles<S>
-{
+impl<S: State> Endpoint<S> for StaticFiles<S> {
     async fn call(&self, req: Request<S>) -> Result<Response> {
         let path = PathBuf::from(req.uri().path());
 

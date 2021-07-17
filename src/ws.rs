@@ -1,16 +1,16 @@
-use crate::{Request, Response, Result};
 use crate::endpoint::Endpoint;
+use crate::state::State;
+use crate::{Request, Response, Result};
 use async_trait::async_trait;
 use futures_util::{SinkExt, TryStreamExt};
 use hyper::upgrade::Upgraded;
 use hyper::StatusCode;
-use tracing::trace;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
-use crate::state::State;
+use tracing::trace;
 
 /// An endpoint for accepting a websocket connection.
 /// Typically constructed by the `Route::ws` method.

@@ -1,21 +1,21 @@
-use crate::router::{RouteTarget, Router};
-use crate::static_files::StaticFiles;
-use crate::state::State;
-use crate::ws::WebSocket;
 use crate::endpoint::Endpoint;
-use crate::{Responder, Request, Result, Response};
 use crate::filter::{Filter, Next};
-use hyper::server::conn::{AddrStream, AddrIncoming};
+use crate::router::{RouteTarget, Router};
+use crate::state::State;
+use crate::static_files::StaticFiles;
+use crate::ws::WebSocket;
+use crate::{Request, Responder, Response, Result};
+use async_trait::async_trait;
+use hyper::server::conn::{AddrIncoming, AddrStream};
+use hyper::server::Builder;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method};
-use tracing::info;
 use std::convert::Infallible;
 use std::future::Future;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::net::ToSocketAddrs;
-use async_trait::async_trait;
-use hyper::server::Builder;
+use tracing::info;
 
 /// The main entry point to highnoon. An `App` can be launched as a server
 /// or mounted into another `App`.
@@ -28,14 +28,12 @@ pub struct App<S: State> {
 }
 
 /// Returned by `App::at` and attaches method handlers to a route.
-pub struct Route<'a, 'p, S: State>
-{
+pub struct Route<'a, 'p, S: State> {
     path: &'p str,
     app: &'a mut App<S>,
 }
 
-impl<'a, 'p, S: State> Route<'a, 'p, S>
-{
+impl<'a, 'p, S: State> Route<'a, 'p, S> {
     /// Attach an endpoint for a specific HTTP method
     pub fn method(self, method: Method, ep: impl Endpoint<S> + Send + Sync + 'static) -> Self {
         self.app.routes.add(method, self.path, ep);
@@ -82,10 +80,12 @@ impl<'a, 'p, S: State> Route<'a, 'p, S>
     /// Mount an app to handle all requests from this path.
     /// The path may contain parameters and these will be merged into
     /// the parameters from individual paths in the inner `App`
-    pub fn mount(&mut self, app: App<S>)
-    {
+    pub fn mount(&mut self, app: App<S>) {
         let path = self.path.to_owned() + "/*-highnoon-path-rest-";
-        let route = Route { app: self.app, path: &path };
+        let route = Route {
+            app: self.app,
+            path: &path,
+        };
         route.all(app);
     }
 
@@ -99,8 +99,7 @@ impl<'a, 'p, S: State> Route<'a, 'p, S>
     }
 }
 
-impl<S: State> App<S>
-{
+impl<S: State> App<S> {
     /// Create a new `App` with the given state.
     /// State must be `Send + Sync + 'static` because it gets shared by all route handlers.
     /// If you need inner mutability use a `Mutex` or similar.
@@ -121,7 +120,7 @@ impl<S: State> App<S>
     /// applied in the order they are registered.
     pub fn with<F>(&mut self, filter: F)
     where
-        F: Filter<S> + Send + Sync + 'static
+        F: Filter<S> + Send + Sync + 'static,
     {
         self.filters.push(Box::new(filter));
     }
@@ -135,7 +134,6 @@ impl<S: State> App<S>
     /// Start a server listening on the given address (See `ToSocketAddrs` from tokio)
     /// This method only returns if there is an error. (Graceful shutdown is TODO)
     pub async fn listen(self, host: impl ToSocketAddrs) -> anyhow::Result<()> {
-
         let mut addrs = tokio::net::lookup_host(host).await?;
         let addr = addrs
             .next()
@@ -169,7 +167,10 @@ impl<S: State> App<S>
 
                         let req = Request::new(app.clone(), req, params, addr);
 
-                        let next = Next { ep, rest: &*app.filters };
+                        let next = Next {
+                            ep,
+                            rest: &*app.filters,
+                        };
 
                         next.next(req)
                             .await
@@ -189,17 +190,18 @@ impl<S: State> App<S>
 }
 
 #[async_trait]
-impl<S: State> Endpoint<S> for App<S>
-{
+impl<S: State> Endpoint<S> for App<S> {
     async fn call(&self, mut req: Request<S>) -> Result<Response> {
         let path_rest = req.param("-highnoon-path-rest-")?;
 
-        let RouteTarget { ep, params } =
-            self.routes.lookup(req.method(), path_rest);
+        let RouteTarget { ep, params } = self.routes.lookup(req.method(), path_rest);
 
         req.merge_params(params);
 
-        let next = Next { ep, rest: &*self.filters };
+        let next = Next {
+            ep,
+            rest: &*self.filters,
+        };
 
         next.next(req).await
     }

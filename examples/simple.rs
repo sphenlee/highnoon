@@ -1,22 +1,42 @@
-use highnoon::{App, Json, Message, Request, Result, Response, Error};
+use headers::authorization::{Authorization, Bearer};
+use highnoon::filter::session;
+use highnoon::filter::session::{HasSession, Session};
+use highnoon::filter::Next;
+use highnoon::{App, Error, Json, Message, Request, Response, Result};
 use hyper::StatusCode;
 use serde_derive::Serialize;
 use tokio;
-use highnoon::filter::Next;
-use highnoon::filter::session;
-use highnoon::filter::session::{Session, HasSession};
-use headers::authorization::{Authorization, Bearer};
 use tracing::info;
 
-#[derive(Default)]
-struct State;
+/// a fake database, in a real server this would be a pool connection
+#[derive(Debug)]
+struct Db;
 
+impl Default for Db {
+    fn default() -> Self {
+        Db
+    }
+}
+
+/// An extension trait to get access to the database
+trait HasDb {
+    fn get_db(&self) -> &Db;
+}
+
+/// Application state
+#[derive(Default)]
+struct State {
+    db: Db,
+}
+
+/// Per request context
 #[derive(Default)]
 struct Context {
     session: session::Session,
-    token: Option<String>
+    token: Option<String>,
 }
 
+/// Implement state for our struct
 impl highnoon::State for State {
     type Context = Context;
 
@@ -25,19 +45,38 @@ impl highnoon::State for State {
     }
 }
 
+/// Our context has sessions
 impl session::HasSession for Context {
     fn session(&mut self) -> &mut Session {
         &mut self.session
     }
 }
 
+/// Our state has a database
+impl HasDb for State {
+    fn get_db(&self) -> &Db {
+        &self.db
+    }
+}
 
+/// We can also extend the Request for states that have a Db
+impl<S> HasDb for Request<S>
+where
+    S: highnoon::State + HasDb,
+{
+    fn get_db(&self) -> &Db {
+        self.state().get_db()
+    }
+}
+
+/// Data we store in the Session
 #[derive(Serialize)]
 struct Sample {
     data: String,
     value: i32,
 }
 
+/// A filter for checking token auth
 struct AuthCheck;
 
 #[async_trait::async_trait]
@@ -56,34 +95,41 @@ impl highnoon::filter::Filter<State> for AuthCheck {
     }
 }
 
+/// A route handler that returns an Error which translates into HTTP bad request
 fn error_example(req: &Request<State>) -> Result<()> {
     let fail = req.param("fail")?.parse::<bool>()?;
 
     if fail {
-        Err(Error::http((StatusCode::BAD_REQUEST, "you asked for it")))
+        Err(Error::bad_request("you asked for it"))
     } else {
         Ok(())
     }
 }
 
-
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
+    // create the root app
     let mut app = App::new(State::default());
 
+    // install the logging filter
     app.with(highnoon::filter::Log);
-    let memstore = highnoon::filter::session::MemorySessionStore::new();
-    app.with(highnoon::filter::session::SessionFilter::new(memstore)
-        .with_cookie_name("simple_sid")
-        .with_expiry(time::Duration::minutes(5))
-        .with_callback(|cookie| {
-            // for demo purposes - default is secure cookies
-            cookie.set_secure(false);
-        }))
-        ;
 
+    // setup session handling
+    let memstore = highnoon::filter::session::MemorySessionStore::new();
+    app.with(
+        highnoon::filter::session::SessionFilter::new(memstore)
+            .with_cookie_name("simple_sid")
+            .with_expiry(time::Duration::minutes(5))
+            .with_callback(|cookie| {
+                // for demo purposes - default is secure cookies
+                cookie.set_secure(false);
+            }),
+    );
+
+    // setup routes
+    // basic route to show get and post
     app.at("/hello")
         .get(|_req| async { "Hello world!\n\n" })
         .post(|mut req: Request<State>| async move {
@@ -91,29 +137,38 @@ async fn main() -> Result<()> {
             Ok(bytes)
         });
 
-    app.at("/echo/:name").get(|mut req: Request<State>| async move {
-        let seen = match req.session().get("seen") {
-            None => 0,
-            Some(s) => s.parse()?
-        };
+    // a route with a parameter, also uses session data
+    app.at("/echo/:name")
+        .get(|mut req: Request<State>| async move {
+            let seen = match req.session().get("seen") {
+                None => 0,
+                Some(s) => s.parse()?,
+            };
 
-        let greeting = if seen > 1 {
-            "You again!"
-        } else if seen == 1 {
-            "Welcome back"
-        } else {
-            "Hello"
-        };
+            let greeting = if seen > 1 {
+                "You again!"
+            } else if seen == 1 {
+                "Welcome back"
+            } else {
+                "Hello"
+            };
 
-        req.session().set("seen".to_owned(), (seen + 1).to_string());
+            req.session().set("seen".to_owned(), (seen + 1).to_string());
 
-        let p = req.param("name");
-        Ok(match p {
-            Err(_) => format!("{} anonymous\n\n", greeting),
-            Ok(name) => format!("{} {}\n\n", greeting, name),
-        })
+            let p = req.param("name");
+            Ok(match p {
+                Err(_) => format!("{} anonymous\n\n", greeting),
+                Ok(name) => format!("{} {}\n\n", greeting, name),
+            })
+        });
+
+    // route that accesses the "database"
+    app.at("/db").get(|req: Request<State>| async move {
+        let db = req.get_db();
+        format!("database is {:?}", db)
     });
 
+    // return some json
     app.at("/json").get(|_req| async {
         Json(Sample {
             data: "hello".to_owned(),
@@ -121,13 +176,16 @@ async fn main() -> Result<()> {
         })
     });
 
+    // demonstrate using Err to return HTTP errors
     app.at("/error/:fail").get(|req| async move {
         error_example(&req)?;
         Ok("")
     });
 
+    // use a function as a handler
     app.at("/query").get(echo_stuff);
 
+    // websocket
     app.at("/ws").ws(|mut ws| async move {
         println!("running the websocket");
 
@@ -140,28 +198,35 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
+    // create a sub-app with the auth filter
     let mut api = App::new(State::default());
     api.with(AuthCheck);
 
+    // check auth is working
     api.at("check").get(|req: Request<State>| async move {
         println!("URI: {}", req.uri());
         println!("Bearer: {:?}", req.context().token);
         StatusCode::OK
     });
+    // check that parameters get merged
     api.at("user/:name").get(|req: Request<_>| async move {
         println!("URI: {}", req.uri());
         println!("params: {:?}", req.params());
         StatusCode::OK
     });
 
+    // mount the sub-app into the root
     app.at("/api/:version").mount(api);
 
+    // static files handling
     app.at("/static/*").static_files("examples/resources/");
 
+    // launch the server!
     app.listen("0.0.0.0:8888").await?;
     Ok(())
 }
 
+/// demonstrate all the request methods
 async fn echo_stuff(mut req: Request<State>) -> Result<StatusCode> {
     let uri = req.uri();
     println!("URI: {}", uri);

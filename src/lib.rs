@@ -6,6 +6,7 @@ pub use tokio_tungstenite::tungstenite::Message;
 mod app;
 mod endpoint;
 mod error;
+pub mod filter;
 mod request;
 mod responder;
 mod response;
@@ -13,14 +14,13 @@ mod router;
 mod state;
 mod static_files;
 pub mod ws;
-pub mod filter;
 
-pub use app::App;
-pub use state::State;
-pub use error::Error;
+pub use app::{App, Route};
 pub use endpoint::Endpoint;
+pub use error::Error;
 pub use request::Request;
-pub use responder::{Json, Responder, Form};
+pub use responder::{Form, Json, Responder};
 pub use response::Response;
+pub use state::State;
 
 pub type Result<T> = std::result::Result<T, Error>;

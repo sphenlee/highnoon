@@ -35,7 +35,7 @@ impl Error {
     pub fn http(resp: impl Responder) -> Self {
         match resp.into_response() {
             Ok(r) => Self::Http(r),
-            Err(e) => e
+            Err(e) => e,
         }
     }
 

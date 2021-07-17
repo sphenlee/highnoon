@@ -15,8 +15,7 @@ pub trait State: Send + Sync + 'static {
 }
 
 /// Implement state for void
-impl State for ()
-{
+impl State for () {
     type Context = ();
 
     fn new_context(&self) -> Self::Context {
