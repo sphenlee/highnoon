@@ -33,7 +33,6 @@ struct State {
 #[derive(Default)]
 struct Context {
     session: session::Session,
-    token: Option<String>,
 }
 
 /// Implement state for our struct
@@ -76,12 +75,36 @@ struct Sample {
     value: i32,
 }
 
+
+#[derive(Default)]
+struct ApiState;
+
+#[derive(Default)]
+struct ApiContext {
+    token: Option<String>,
+}
+
+impl From<Context> for ApiContext {
+    fn from(_: Context) -> Self {
+        ApiContext::default()
+    }
+}
+
+/// Implement state for our struct
+impl highnoon::State for ApiState {
+    type Context = ApiContext;
+
+    fn new_context(&self) -> ApiContext {
+        ApiContext::default()
+    }
+}
+
 /// A filter for checking token auth
 struct AuthCheck;
 
 #[async_trait::async_trait]
-impl highnoon::filter::Filter<State> for AuthCheck {
-    async fn apply(&self, mut req: Request<State>, next: Next<'_, State>) -> Result<Response> {
+impl highnoon::filter::Filter<ApiState> for AuthCheck {
+    async fn apply(&self, mut req: Request<ApiState>, next: Next<'_, ApiState>) -> Result<Response> {
         let auth = req.header::<Authorization<Bearer>>();
 
         match auth {
@@ -108,7 +131,7 @@ fn error_example(req: &Request<State>) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt().compact().init();
 
     // create the root app
     let mut app = App::new(State::default());
@@ -199,11 +222,11 @@ async fn main() -> Result<()> {
     });
 
     // create a sub-app with the auth filter
-    let mut api = App::new(State::default());
+    let mut api = App::new(ApiState::default());
     api.with(AuthCheck);
 
     // check auth is working
-    api.at("check").get(|req: Request<State>| async move {
+    api.at("check").get(|req: Request<ApiState>| async move {
         println!("URI: {}", req.uri());
         println!("Bearer: {:?}", req.context().token);
         StatusCode::OK

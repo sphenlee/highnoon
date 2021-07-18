@@ -19,7 +19,7 @@ use tracing::info;
 
 /// The main entry point to highnoon. An `App` can be launched as a server
 /// or mounted into another `App`.
-/// Each `App` has a chain of (Filters)[`Filter`]
+/// Each `App` has a chain of [`Filters`](Filter)
 /// which are applied to each request.
 pub struct App<S: State> {
     state: S,
@@ -27,7 +27,7 @@ pub struct App<S: State> {
     filters: Vec<Box<dyn Filter<S> + Send + Sync + 'static>>,
 }
 
-/// Returned by `App::at` and attaches method handlers to a route.
+/// Returned by [App::at] and attaches method handlers to a route.
 pub struct Route<'a, 'p, S: State> {
     path: &'p str,
     app: &'a mut App<S>,
@@ -79,14 +79,17 @@ impl<'a, 'p, S: State> Route<'a, 'p, S> {
 
     /// Mount an app to handle all requests from this path.
     /// The path may contain parameters and these will be merged into
-    /// the parameters from individual paths in the inner `App`
-    pub fn mount(&mut self, app: App<S>) {
+    /// the parameters from individual paths in the inner `App`.
+    /// The App may have a different state type, but its `Context` must implement `From` to perform
+    /// the conversion from the parent state's `Context` - *the inner `App`'s `new_context` won't
+    /// be called*.
+    pub fn mount<S2>(&mut self, app: App<S2>)
+    where S2: State,
+        S2::Context: From<S::Context>,
+    {
         let path = self.path.to_owned() + "/*-highnoon-path-rest-";
-        let route = Route {
-            app: self.app,
-            path: &path,
-        };
-        route.all(app);
+        let mounted = MountedApp{ app: Arc::new(app) };
+        self.app.at(&path).all(mounted);
     }
 
     /// Attach a websocket handler to this route
@@ -125,13 +128,13 @@ impl<S: State> App<S> {
         self.filters.push(Box::new(filter));
     }
 
-    /// Create a route at the given path. Returns a `Route` object on which you can
+    /// Create a route at the given path. Returns a [Route] object on which you can
     /// attach handlers for each HTTP method
     pub fn at<'a, 'p>(&'a mut self, path: &'p str) -> Route<'a, 'p, S> {
         Route { path, app: self }
     }
 
-    /// Start a server listening on the given address (See `ToSocketAddrs` from tokio)
+    /// Start a server listening on the given address (See [ToSocketAddrs] from tokio)
     /// This method only returns if there is an error. (Graceful shutdown is TODO)
     pub async fn listen(self, host: impl ToSocketAddrs) -> anyhow::Result<()> {
         let mut addrs = tokio::net::lookup_host(host).await?;
@@ -143,7 +146,7 @@ impl<S: State> App<S> {
         self.internal_serve(builder).await
     }
 
-    /// Start a server listening on the provided `TcpListener`
+    /// Start a server listening on the provided [std::net::TcpListener]
     /// This method only returns if there is an error. (Graceful shutdown is TODO)
     pub async fn listen_on(self, tcp: std::net::TcpListener) -> anyhow::Result<()> {
         let builder = hyper::Server::from_tcp(tcp)?;
@@ -165,7 +168,8 @@ impl<S: State> App<S> {
                         let RouteTarget { ep, params } =
                             app.routes.lookup(req.method(), req.uri().path());
 
-                        let req = Request::new(app.clone(), req, params, addr);
+                        let ctx = app.state.new_context();
+                        let req = Request::new(app.clone(), req, params, addr, ctx);
 
                         let next = Next {
                             ep,
@@ -189,20 +193,34 @@ impl<S: State> App<S> {
     }
 }
 
+struct MountedApp<S: State> {
+    app: Arc<App<S>>
+}
+
 #[async_trait]
-impl<S: State> Endpoint<S> for App<S> {
-    async fn call(&self, mut req: Request<S>) -> Result<Response> {
-        let path_rest = req.param("-highnoon-path-rest-")?;
+impl<S: State, S2: State> Endpoint<S> for MountedApp<S2>
+    where S2::Context: From<S::Context>
+{
+    async fn call(&self, req: Request<S>) -> Result<Response> {
+        // deconstruct the request from the outer state
+        let (inner, params, remote_addr, context) = req.into_parts();
+        // get the part of the path still to be routed
+        let path_rest = params.find("-highnoon-path-rest-").expect("-highnoon-path-rest- is missing!");
+        // lookup the target for the request in the nested app
+        let RouteTarget { ep, params: params2 } = self.app.routes.lookup(inner.method(), path_rest);
 
-        let RouteTarget { ep, params } = self.routes.lookup(req.method(), path_rest);
+        // construct a new request for the inner state type
+        let mut req2 = Request::new(self.app.clone(), inner, params, remote_addr, context.into());
 
-        req.merge_params(params);
+        // merge the inner params
+        req2.merge_params(params2);
 
+        // start the filter chain for the nested app
         let next = Next {
             ep,
-            rest: &*self.filters,
+            rest: &*self.app.filters,
         };
 
-        next.next(req).await
+        next.next(req2).await
     }
 }

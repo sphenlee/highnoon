@@ -26,8 +26,8 @@ impl<S: State> Request<S> {
         inner: hyper::Request<Body>,
         params: Params,
         remote_addr: SocketAddr,
+        context: S::Context,
     ) -> Self {
-        let context = app.state().new_context();
         Self {
             app,
             context,
@@ -35,6 +35,10 @@ impl<S: State> Request<S> {
             params,
             remote_addr,
         }
+    }
+
+    pub(crate) fn into_parts(self) -> (hyper::Request<Body>, Params, SocketAddr, S::Context) {
+        (self.inner, self.params, self.remote_addr, self.context)
     }
 
     pub(crate) fn merge_params(&mut self, params: Params) {
