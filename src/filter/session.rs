@@ -18,11 +18,11 @@ use uuid::Uuid;
 #[async_trait]
 pub trait SessionStore {
     /// Get the data associated with session
-    async fn get(&self, id: &str) -> Option<&str>;
+    async fn get(&self, id: &str) -> Result<Option<String>>;
     /// Set the data for a session
-    async fn set(&mut self, id: String, value: String);
+    async fn set(&mut self, id: String, value: String) -> Result<()>;
     /// Clear data for a session
-    async fn clear(&mut self, id: &str);
+    async fn clear(&mut self, id: &str) -> Result<()>;
 }
 
 /// Memory backed implementation of session storage.
@@ -42,19 +42,21 @@ impl MemorySessionStore {
 
 #[async_trait]
 impl SessionStore for MemorySessionStore {
-    async fn get<'s>(&'s self, id: &str) -> Option<&'s str> {
+    async fn get(&self, id: &str) -> Result<Option<String>> {
         debug!(id, "memory store get");
-        self.data.get(id).map(AsRef::as_ref)
+        Ok(self.data.get(id).cloned())
     }
 
-    async fn set(&mut self, id: String, value: String) {
+    async fn set(&mut self, id: String, value: String) -> Result<()> {
         debug!(%id, %value, "memory store set");
         self.data.insert(id, value);
+        Ok(())
     }
 
-    async fn clear(&mut self, id: &str) {
+    async fn clear(&mut self, id: &str) -> Result<()> {
         debug!(id, "memory store clear");
         self.data.remove(id);
+        Ok(())
     }
 }
 
@@ -200,8 +202,8 @@ where
             debug!(%sid, "request has session cookie");
 
             let store = self.store.lock().await;
-            let raw_data = store.get(&sid).await.unwrap_or("");
-            let data = serde_urlencoded::from_str(raw_data)?;
+            let raw_data = store.get(&sid).await?.unwrap_or_else(String::new);
+            let data = serde_urlencoded::from_str(&raw_data)?;
             session.load(data);
             sid
         } else {
@@ -234,7 +236,7 @@ where
 
             resp.set_raw_header(SetCookie::name(), cookie.to_string())?;
 
-            store.set(sid, raw_data).await;
+            store.set(sid, raw_data).await?;
         }
 
         Ok(resp)
