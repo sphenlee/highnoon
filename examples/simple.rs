@@ -131,7 +131,10 @@ fn error_example(req: &Request<State>) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt().compact().init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .compact()
+        .init();
 
     // create the root app
     let mut app = App::new(State::default());
@@ -226,13 +229,13 @@ async fn main() -> Result<()> {
     api.with(AuthCheck);
 
     // check auth is working
-    api.at("check").get(|req: Request<ApiState>| async move {
+    api.at("/check").get(|req: Request<ApiState>| async move {
         println!("URI: {}", req.uri());
         println!("Bearer: {:?}", req.context().token);
         StatusCode::OK
     });
     // check that parameters get merged
-    api.at("user/:name").get(|req: Request<_>| async move {
+    api.at("/user/:name").get(|req: Request<_>| async move {
         println!("URI: {}", req.uri());
         println!("params: {:?}", req.params());
         StatusCode::OK
@@ -242,7 +245,7 @@ async fn main() -> Result<()> {
     app.at("/api/:version").mount(api);
 
     // static files handling
-    app.at("/static/*").static_files("examples/resources/");
+    app.at("/static/*path").static_files("examples/resources/");
 
     // launch the server!
     app.listen("0.0.0.0:8888").await?;

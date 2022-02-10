@@ -1,17 +1,17 @@
 use crate::endpoint::Endpoint;
 use crate::state::State;
-use crate::{Request, Responder};
+use crate::{Request, request, Responder};
 use hyper::{Method, StatusCode};
-use route_recognizer::Params;
 use std::collections::HashMap;
+use tracing::trace;
 
 type DynEndpoint<S> = dyn Endpoint<S> + Send + Sync + 'static;
 
-type Recogniser<S> = route_recognizer::Router<Box<DynEndpoint<S>>>;
+type Matcher<S> = matchit::Node<Box<DynEndpoint<S>>>;
 
 pub(crate) struct Router<S> {
-    methods: HashMap<Method, Recogniser<S>>,
-    all: Recogniser<S>,
+    methods: HashMap<Method, Matcher<S>>,
+    all: Matcher<S>,
 }
 
 pub(crate) struct RouteTarget<'a, S>
@@ -19,14 +19,18 @@ where
     S: Send + Sync + 'static,
 {
     pub(crate) ep: &'a DynEndpoint<S>,
-    pub(crate) params: Params,
+    pub(crate) params: request::Params,
+}
+
+fn copy_params(params: matchit::Params<'_, '_>) -> request::Params {
+    params.iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect()
 }
 
 impl<S: State> Router<S> {
     pub(crate) fn new() -> Self {
         Self {
             methods: HashMap::new(),
-            all: Recogniser::new(),
+            all: Matcher::new(),
         }
     }
 
@@ -38,43 +42,48 @@ impl<S: State> Router<S> {
     ) {
         self.methods
             .entry(method)
-            .or_insert_with(route_recognizer::Router::new)
-            .add(path, Box::new(ep))
+            .or_insert_with(matchit::Node::new)
+            .insert(path, Box::new(ep))
+            .expect("error inserting route into matcher")
     }
 
     pub(crate) fn add_all(&mut self, path: &str, ep: impl Endpoint<S> + Sync + Send + 'static) {
-        self.all.add(path, Box::new(ep))
+        self.all.insert(path, Box::new(ep)).expect("error inserting route into matcher")
     }
 
     pub(crate) fn lookup(&self, method: &Method, path: &str) -> RouteTarget<S> {
         if let Some(match_) = self
             .methods
             .get(method)
-            .and_then(|recog| recog.recognize(path).ok())
+            .and_then(|matcher| matcher.at(path).ok())
         {
+            trace!(?method, ?path, "patch matched specific method handler");
             RouteTarget {
-                ep: &***match_.handler(),
-                params: match_.params().clone(), // TODO - avoid this clone?
+                ep: &**match_.value,
+                params: copy_params(match_.params)
             }
-        } else if let Ok(match_) = self.all.recognize(path) {
+        } else if let Ok(match_) = self.all.at(path) {
+            trace!(?method, ?path, "patch matched 'all' handler");
             RouteTarget {
-                ep: &***match_.handler(),
-                params: match_.params().clone(), // TODO - avoid this clone?
+                ep: &**match_.value,
+                params: copy_params(match_.params)
             }
         } else if self
             .methods
             .iter()
             .filter(|(k, _)| k != method)
-            .any(|(_, recog)| recog.recognize(path).is_ok())
+            .any(|(_, matcher)| matcher.at(path).is_ok())
         {
+            trace!(?method, ?path, "patch matched, but wrong method");
             RouteTarget {
                 ep: &method_not_allowed,
-                params: Params::new(),
+                params: request::Params::new(),
             }
         } else {
+            trace!(?method, ?path, "patch not matched");
             RouteTarget {
                 ep: &not_found,
-                params: Params::new(),
+                params: request::Params::new(),
             }
         }
     }
