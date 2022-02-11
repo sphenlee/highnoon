@@ -17,7 +17,7 @@ categories = ["web-programming::http-server"]
 anyhow = "1.0"
 async-trait = "0.1"
 bytes = "1.0"
-cookie = { version = "0.15", features = ["signed"] }
+cookie = { version = "0.16.0", features = ["signed"] }
 futures-util = "0.3"
 hyper = { version = "0.14", features = ["server", "http1", "http2", "runtime", "tcp", "stream"] }
 headers = "0.3"
@@ -27,9 +27,9 @@ mime_guess = "2.0"
 serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.7"
-time = "0.2"
+time = "0.3.7"
 tokio = { version = "1.0", features = ["rt-multi-thread", "net", "macros", "io-util", "fs"] }
-tokio-tungstenite = "0.15"
+tokio-tungstenite = "0.16.1"
 tokio-util = { version = "0.6", features = ["io"] }
 tracing = "0.1"
 uuid = { version = "0.8.2", features = ["v4"]}
@@ -37,4 +37,4 @@ uuid = { version = "0.8.2", features = ["v4"]}
 
 [dev-dependencies]
 serde_derive = "1.0"
-tracing-subscriber = "0.2"
+tracing-subscriber = { version = "0.3.8", features = ["env-filter"] }

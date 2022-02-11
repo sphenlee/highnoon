@@ -80,7 +80,7 @@ impl SessionFilter {
     pub fn new(store: impl SessionStore + Send + Sync + 'static) -> SessionFilter {
         SessionFilter {
             cookie_name: Cow::Borrowed(DEFAULT_COOKIE_NAME),
-            expiry: time::Duration::hour(),
+            expiry: time::Duration::hours(1),
             cookie_callback: None,
             store: AsyncMutex::new(Box::new(store)),
         }
