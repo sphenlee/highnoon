@@ -84,7 +84,7 @@ impl<S: State> Request<S> {
         let q = self.inner.uri().query().unwrap_or("");
         let t = serde_urlencoded::from_str::<T>(q).map_err(|err| {
             Error::bad_request(format!("invalid query parameter: {}", err))
-        });
+        })?;
         Ok(t)
     }
 
