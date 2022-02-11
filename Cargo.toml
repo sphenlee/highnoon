@@ -2,7 +2,7 @@
 name = "highnoon"
 version = "0.0.5"
 authors = ["Steve Lee <sphen.lee@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 description = "minimal web server framework inspired by tide, but built on hyper"
 license = "MIT"
