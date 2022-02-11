@@ -82,7 +82,9 @@ impl<S: State> Request<S> {
         // if there is no query string we can default to empty string
         // serde_urlencode will work if T has all optional fields
         let q = self.inner.uri().query().unwrap_or("");
-        let t = serde_urlencoded::from_str::<T>(q)?;
+        let t = serde_urlencoded::from_str::<T>(q).map_err(|err| {
+            Error::bad_request(format!("invalid query parameter: {}", err))
+        });
         Ok(t)
     }
 
