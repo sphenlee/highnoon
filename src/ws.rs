@@ -2,12 +2,13 @@ use crate::endpoint::Endpoint;
 use crate::state::State;
 use crate::{Request, Response, Result};
 use async_trait::async_trait;
-use futures_util::{SinkExt, TryStreamExt};
+use futures_util::{SinkExt, StreamExt, TryStreamExt};
 use hyper::upgrade::Upgraded;
 use hyper::StatusCode;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use futures_util::stream::{SplitSink, SplitStream};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
 use tracing::trace;
@@ -18,7 +19,7 @@ use tracing::trace;
 pub struct WsEndpoint<H, F, S>
 where
     S: Send + Sync + 'static,
-    H: Send + Sync + 'static + Fn(WebSocket) -> F,
+    H: Send + Sync + 'static + Fn(WebSocketSender, WebSocketReceiver) -> F,
     F: Future<Output = Result<()>> + Send + 'static,
 {
     handler: Arc<H>,
@@ -30,7 +31,7 @@ where
 pub fn endpoint<H, F, S>(handler: H) -> WsEndpoint<H, F, S>
 where
     S: Send + Sync + 'static,
-    H: Send + Sync + 'static + Fn(WebSocket) -> F,
+    H: Send + Sync + 'static + Fn(WebSocketSender, WebSocketReceiver) -> F,
     F: Future<Output = Result<()>> + Send + 'static,
 {
     WsEndpoint {
@@ -43,7 +44,7 @@ where
 impl<H, F, S> Endpoint<S> for WsEndpoint<H, F, S>
 where
     S: State,
-    H: Send + Sync + 'static + Fn(WebSocket) -> F,
+    H: Send + Sync + 'static + Fn(WebSocketSender, WebSocketReceiver) -> F,
     F: Future<Output = Result<()>> + Send + 'static,
 {
     async fn call(&self, req: Request<S>) -> Result<Response> {
@@ -58,7 +59,7 @@ where
 async fn upgrade_connection<S, H, F>(req: Request<S>, handler: Arc<H>) -> Response
 where
     S: State,
-    H: Send + Sync + 'static + Fn(WebSocket) -> F,
+    H: Send + Sync + 'static + Fn(WebSocketSender, WebSocketReceiver) -> F,
     F: Future<Output = Result<()>> + Send + 'static,
 {
     // TODO - check various headers
@@ -103,27 +104,36 @@ where
         )
         .await;
 
-        let _ = (handler)(WebSocket { inner: ws }).await;
+        let (tx, rx) = ws.split();
+        let _ = (handler)(WebSocketSender { inner: tx }, WebSocketReceiver { inner: rx }).await;
     });
 
     res
 }
 
-/// A websocket connection
-pub struct WebSocket {
-    inner: WebSocketStream<Upgraded>,
+/// The sending half of the websocket connection
+pub struct WebSocketSender {
+    inner: SplitSink<WebSocketStream<Upgraded>, Message>,
 }
 
-impl WebSocket {
-    /// Receive a message from the websocket
-    pub async fn recv(&mut self) -> Result<Option<Message>> {
-        let msg = self.inner.try_next().await?;
-        Ok(msg)
-    }
-
+impl WebSocketSender {
     /// Send a message over the websocket
     pub async fn send(&mut self, msg: Message) -> Result<()> {
         self.inner.send(msg).await?;
         Ok(())
+    }
+}
+
+
+/// The receiving half of the websocket connection
+pub struct WebSocketReceiver {
+    inner: SplitStream<WebSocketStream<Upgraded>>,
+}
+
+impl WebSocketReceiver {
+    /// Receive a message from the websocket
+    pub async fn recv(&mut self) -> Result<Option<Message>> {
+        let msg = self.inner.try_next().await?;
+        Ok(msg)
     }
 }

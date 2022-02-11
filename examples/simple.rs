@@ -212,13 +212,13 @@ async fn main() -> Result<()> {
     app.at("/query").get(echo_stuff);
 
     // websocket
-    app.at("/ws").ws(|mut ws| async move {
+    app.at("/ws").ws(|mut tx, mut rx| async move {
         println!("running the websocket");
 
-        while let Some(msg) = ws.recv().await? {
+        while let Some(msg) = rx.recv().await? {
             println!("message: {}", msg);
             let reply = Message::text("Hello from Highnoon!");
-            ws.send(reply).await?;
+            tx.send(reply).await?;
         }
 
         Ok(())

@@ -3,7 +3,7 @@ use crate::filter::{Filter, Next};
 use crate::router::{RouteTarget, Router};
 use crate::state::State;
 use crate::static_files::StaticFiles;
-use crate::ws::WebSocket;
+use crate::ws::{WebSocketReceiver, WebSocketSender};
 use crate::{Request, Responder, Response, Result};
 use async_trait::async_trait;
 use hyper::server::conn::{AddrIncoming, AddrStream};
@@ -95,7 +95,7 @@ impl<'a, 'p, S: State> Route<'a, 'p, S> {
     /// Attach a websocket handler to this route
     pub fn ws<H, F>(self, handler: H)
     where
-        H: Send + Sync + 'static + Fn(WebSocket) -> F,
+        H: Send + Sync + 'static + Fn(WebSocketSender, WebSocketReceiver) -> F,
         F: Future<Output = Result<()>> + Send + 'static,
     {
         self.method(Method::GET, crate::ws::endpoint(handler));
