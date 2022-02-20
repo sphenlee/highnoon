@@ -1,6 +1,6 @@
 [package]
 name = "highnoon"
-version = "0.0.6"
+version = "0.0.7"
 authors = ["Steve Lee <sphen.lee@gmail.com>"]
 edition = "2021"
 
