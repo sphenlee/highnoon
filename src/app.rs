@@ -68,7 +68,7 @@ impl<'a, 'p, S: State> Route<'a, 'p, S> {
     }
 
     /// Serve static files located in the path `root`. The path should end with a wildcard segment
-    /// (ie. `/*path`). The wildcard portion of the URL will be appended to `root` to form the full
+    /// (ie. `/*`). The wildcard portion of the URL will be appended to `root` to form the full
     /// path. The file extension is used to guess a mime type. Files outside of `root` will return
     /// a FORBIDDEN error code; `..` and `.` path segments are allowed as long as they do not navigate
     /// outside of `root`.
@@ -205,7 +205,7 @@ impl<S: State, S2: State> Endpoint<S> for MountedApp<S2>
         // deconstruct the request from the outer state
         let (inner, params, remote_addr, context) = req.into_parts();
         // get the part of the path still to be routed
-        let path_rest = params.get("-highnoon-path-rest-").expect("-highnoon-path-rest- is missing!");
+        let path_rest = params.find("-highnoon-path-rest-").expect("-highnoon-path-rest- is missing!");
         // lookup the target for the request in the nested app
         let RouteTarget { ep, params: params2 } = self.app.routes.lookup(inner.method(), path_rest);
 

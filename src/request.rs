@@ -1,17 +1,15 @@
-use std::collections::HashMap;
 use crate::state::State;
 use crate::{App, Error, Result};
 use cookie::{Cookie, CookieJar};
 use headers::{Header, HeaderMapExt};
 use hyper::header::HeaderValue;
 use hyper::{body::Buf, Body, HeaderMap, StatusCode};
+use route_recognizer::Params;
 use serde::de::DeserializeOwned;
 use std::io::Read;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::error;
-
-pub type Params = HashMap<String, String>;
 
 /// An incoming request
 pub struct Request<S: State> {
@@ -115,12 +113,10 @@ impl<S: State> Request<S> {
     ///
     /// If the parameter is not present, logs an error and returns a `400 Bad Request` to the client
     pub fn param(&self, param: &str) -> Result<&str> {
-        self.params.get(param)
-            .map(|s| s.as_ref())
-            .ok_or_else(|| {
-                error!("parameter {} not found", param);
-                Error::http(StatusCode::BAD_REQUEST)
-            })
+        self.params.find(param).ok_or_else(|| {
+            error!("parameter {} not found", param);
+            Error::http(StatusCode::BAD_REQUEST)
+        })
     }
 
     /// Get all route parameters
