@@ -18,7 +18,7 @@ use std::future::Future;
 /// # use highnoon::{Endpoint, State, Result, Request, Response};
 /// struct NoOpEndpoint;
 ///
-/// #[async_trait]
+/// #[async_trait::async_trait]
 /// impl<S: State> Endpoint<S> for NoOpEndpoint
 /// {
 ///     async fn call(&self, req: Request<S>) -> Result<Response> {

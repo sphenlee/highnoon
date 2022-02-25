@@ -46,11 +46,11 @@ impl<S: State> Next<'_, S> {
 /// # use highnoon::{filter::{Filter, Next}, State, Result, Request, Response};
 /// struct NoOpFilter;
 ///
-/// #[async_trait]
+/// #[async_trait::async_trait]
 /// impl<S: State> Filter<S> for NoOpFilter
 /// {
 ///     async fn apply(&self, req: Request<S>, next: Next<'_, S>) -> Result<Response> {
-///         next.next(req)
+///         next.next(req).await
 ///     }
 /// }
 /// ```
