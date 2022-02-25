@@ -14,6 +14,7 @@ mod router;
 mod state;
 mod static_files;
 pub mod ws;
+mod test_client;
 
 pub use app::{App, Route};
 pub use endpoint::Endpoint;

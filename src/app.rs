@@ -12,10 +12,12 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method};
 use std::convert::Infallible;
 use std::future::Future;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::net::ToSocketAddrs;
 use tracing::info;
+use crate::test_client::TestClient;
 
 /// The main entry point to highnoon. An `App` can be launched as a server
 /// or mounted into another `App`.
@@ -114,6 +116,13 @@ impl<S: State> App<S> {
         }
     }
 
+    /// Create a test client by consuming this App. The test client can be used to send fake
+    /// requests to the App and receive responses back. This can be used in unit and
+    /// integration tests.
+    pub fn test(self) -> TestClient<S> {
+        TestClient::new(self)
+    }
+
     /// Get a reference to this App's state
     pub fn state(&self) -> &S {
         &self.state
@@ -163,24 +172,8 @@ impl<S: State> App<S> {
             async move {
                 Ok::<_, Infallible>(service_fn(move |req: hyper::Request<Body>| {
                     let app = app.clone();
-
                     async move {
-                        let RouteTarget { ep, params } =
-                            app.routes.lookup(req.method(), req.uri().path());
-
-                        let ctx = app.state.new_context();
-                        let req = Request::new(app.clone(), req, params, addr, ctx);
-
-                        let next = Next {
-                            ep,
-                            rest: &*app.filters,
-                        };
-
-                        next.next(req)
-                            .await
-                            .or_else(|err| err.into_response())
-                            .map(|resp| resp.into_inner())
-                            .map_err(|err| err.into_std())
+                        App::serve_one_req(app, req, addr).await.map_err(|err| err.into_std())
                     }
                 }))
             }
@@ -190,6 +183,26 @@ impl<S: State> App<S> {
         info!("server listening on {}", server.local_addr());
         server.await?;
         Ok(())
+    }
+
+    pub(crate) async fn serve_one_req(app: Arc<App<S>>, req: hyper::Request<Body>, addr: SocketAddr)
+        -> Result<hyper::Response<Body>>
+    {
+        let RouteTarget { ep, params } =
+            app.routes.lookup(req.method(), req.uri().path());
+
+        let ctx = app.state.new_context();
+        let req = Request::new(app.clone(), req, params, addr, ctx);
+
+        let next = Next {
+            ep,
+            rest: &*app.filters,
+        };
+
+        next.next(req)
+            .await
+            .or_else(|err| err.into_response())
+            .map(|resp| resp.into_inner())
     }
 }
 
