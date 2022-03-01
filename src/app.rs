@@ -3,6 +3,7 @@ use crate::filter::{Filter, Next};
 use crate::router::{RouteTarget, Router};
 use crate::state::State;
 use crate::static_files::StaticFiles;
+use crate::test_client::TestClient;
 use crate::ws::{WebSocketReceiver, WebSocketSender};
 use crate::{Request, Responder, Response, Result};
 use async_trait::async_trait;
@@ -17,7 +18,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::net::ToSocketAddrs;
 use tracing::info;
-use crate::test_client::TestClient;
 
 /// The main entry point to highnoon. An `App` can be launched as a server
 /// or mounted into another `App`.
@@ -86,11 +86,12 @@ impl<'a, 'p, S: State> Route<'a, 'p, S> {
     /// the conversion from the parent state's `Context` - *the inner `App`'s `new_context` won't
     /// be called*.
     pub fn mount<S2>(&mut self, app: App<S2>)
-    where S2: State,
+    where
+        S2: State,
         S2::Context: From<S::Context>,
     {
         let path = self.path.to_owned() + "/*-highnoon-path-rest-";
-        let mounted = MountedApp{ app: Arc::new(app) };
+        let mounted = MountedApp { app: Arc::new(app) };
         self.app.at(&path).all(mounted);
     }
 
@@ -173,7 +174,9 @@ impl<S: State> App<S> {
                 Ok::<_, Infallible>(service_fn(move |req: hyper::Request<Body>| {
                     let app = app.clone();
                     async move {
-                        App::serve_one_req(app, req, addr).await.map_err(|err| err.into_std())
+                        App::serve_one_req(app, req, addr)
+                            .await
+                            .map_err(|err| err.into_std())
                     }
                 }))
             }
@@ -185,11 +188,12 @@ impl<S: State> App<S> {
         Ok(())
     }
 
-    pub(crate) async fn serve_one_req(app: Arc<App<S>>, req: hyper::Request<Body>, addr: SocketAddr)
-        -> Result<hyper::Response<Body>>
-    {
-        let RouteTarget { ep, params } =
-            app.routes.lookup(req.method(), req.uri().path());
+    pub(crate) async fn serve_one_req(
+        app: Arc<App<S>>,
+        req: hyper::Request<Body>,
+        addr: SocketAddr,
+    ) -> Result<hyper::Response<Body>> {
+        let RouteTarget { ep, params } = app.routes.lookup(req.method(), req.uri().path());
 
         let ctx = app.state.new_context();
         let req = Request::new(app.clone(), req, params, addr, ctx);
@@ -207,20 +211,26 @@ impl<S: State> App<S> {
 }
 
 struct MountedApp<S: State> {
-    app: Arc<App<S>>
+    app: Arc<App<S>>,
 }
 
 #[async_trait]
 impl<S: State, S2: State> Endpoint<S> for MountedApp<S2>
-    where S2::Context: From<S::Context>
+where
+    S2::Context: From<S::Context>,
 {
     async fn call(&self, req: Request<S>) -> Result<Response> {
         // deconstruct the request from the outer state
         let (inner, params, remote_addr, context) = req.into_parts();
         // get the part of the path still to be routed
-        let path_rest = params.find("-highnoon-path-rest-").expect("-highnoon-path-rest- is missing!");
+        let path_rest = params
+            .find("-highnoon-path-rest-")
+            .expect("-highnoon-path-rest- is missing!");
         // lookup the target for the request in the nested app
-        let RouteTarget { ep, params: params2 } = self.app.routes.lookup(inner.method(), path_rest);
+        let RouteTarget {
+            ep,
+            params: params2,
+        } = self.app.routes.lookup(inner.method(), path_rest);
 
         // construct a new request for the inner state type
         let mut req2 = Request::new(self.app.clone(), inner, params, remote_addr, context.into());

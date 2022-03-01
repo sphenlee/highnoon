@@ -1,12 +1,10 @@
-use serde_json::{json, Value};
 use highnoon::{App, Json, Request, StatusCode};
+use serde_json::{json, Value};
 
 fn make_app() -> App<()> {
     let mut app = App::new(());
 
-    app.at("/greeting").get(|_req| async {
-        "Hello World!"
-    });
+    app.at("/greeting").get(|_req| async { "Hello World!" });
 
     app.at("/reverse").get(|mut req: Request<()>| async move {
         let mut data = req.body_bytes().await?;
@@ -16,9 +14,10 @@ fn make_app() -> App<()> {
 
     app.at("/json").get(|mut req: Request<()>| async move {
         let data: Value = req.body_json().await?;
-        let greeting = data.get("greeting").and_then(|val| {
-            val.as_str()
-        }).map(|s| s.to_owned());
+        let greeting = data
+            .get("greeting")
+            .and_then(|val| val.as_str())
+            .map(|s| s.to_owned());
         Ok(Json(greeting))
     });
 
@@ -42,10 +41,7 @@ pub async fn test_greeting() -> highnoon::Result<()> {
 pub async fn test_reverse() -> highnoon::Result<()> {
     let tc = make_app().test();
 
-    let mut resp = tc
-        .get("/reverse")
-        .body("Hello World!")?
-        .send().await?;
+    let mut resp = tc.get("/reverse").body("Hello World!")?.send().await?;
 
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(resp.body_string().await?, "!dlroW olleH");
@@ -63,7 +59,8 @@ pub async fn test_json() -> highnoon::Result<()> {
         .json(json!({
             "greeting": "Hello World!"
         }))?
-        .send().await?;
+        .send()
+        .await?;
 
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(resp.body_string().await?, "\"Hello World!\"");
@@ -76,9 +73,7 @@ pub async fn test_json() -> highnoon::Result<()> {
 pub async fn test_404() -> highnoon::Result<()> {
     let tc = make_app().test();
 
-    let resp = tc
-        .get("/no_such_route")
-        .send().await?;
+    let resp = tc.get("/no_such_route").send().await?;
 
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 
@@ -90,9 +85,7 @@ pub async fn test_404() -> highnoon::Result<()> {
 pub async fn test_method_not_allowed() -> highnoon::Result<()> {
     let tc = make_app().test();
 
-    let resp = tc
-        .delete("/greeting")
-        .send().await?;
+    let resp = tc.delete("/greeting").send().await?;
 
     assert_eq!(resp.status(), StatusCode::METHOD_NOT_ALLOWED);
 

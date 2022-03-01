@@ -2,13 +2,13 @@ use crate::endpoint::Endpoint;
 use crate::state::State;
 use crate::{Request, Response, Result};
 use async_trait::async_trait;
+use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt, TryStreamExt};
 use hyper::upgrade::Upgraded;
 use hyper::StatusCode;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use futures_util::stream::{SplitSink, SplitStream};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
 use tracing::trace;
@@ -105,7 +105,11 @@ where
         .await;
 
         let (tx, rx) = ws.split();
-        let _ = (handler)(WebSocketSender { inner: tx }, WebSocketReceiver { inner: rx }).await;
+        let _ = (handler)(
+            WebSocketSender { inner: tx },
+            WebSocketReceiver { inner: rx },
+        )
+        .await;
     });
 
     res
@@ -123,7 +127,6 @@ impl WebSocketSender {
         Ok(())
     }
 }
-
 
 /// The receiving half of the websocket connection
 pub struct WebSocketReceiver {

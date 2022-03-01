@@ -202,7 +202,7 @@ where
             debug!(%sid, "request has session cookie");
 
             let store = self.store.lock().await;
-            let raw_data = store.get(&sid).await?.unwrap_or_else(String::new);
+            let raw_data = store.get(&sid).await?.unwrap_or_default();
             let data = serde_urlencoded::from_str(&raw_data)?;
             session.load(data);
             sid

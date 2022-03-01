@@ -75,7 +75,6 @@ struct Sample {
     value: i32,
 }
 
-
 #[derive(Default)]
 struct ApiState;
 
@@ -104,7 +103,11 @@ struct AuthCheck;
 
 #[async_trait::async_trait]
 impl highnoon::filter::Filter<ApiState> for AuthCheck {
-    async fn apply(&self, mut req: Request<ApiState>, next: Next<'_, ApiState>) -> Result<Response> {
+    async fn apply(
+        &self,
+        mut req: Request<ApiState>,
+        next: Next<'_, ApiState>,
+    ) -> Result<Response> {
         let auth = req.header::<Authorization<Bearer>>();
 
         match auth {

@@ -13,8 +13,8 @@ mod response;
 mod router;
 mod state;
 mod static_files;
-pub mod ws;
 mod test_client;
+pub mod ws;
 
 pub use app::{App, Route};
 pub use endpoint::Endpoint;
