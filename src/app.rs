@@ -98,7 +98,7 @@ impl<'a, 'p, S: State> Route<'a, 'p, S> {
     /// Attach a websocket handler to this route
     pub fn ws<H, F>(self, handler: H)
     where
-        H: Send + Sync + 'static + Fn(WebSocketSender, WebSocketReceiver) -> F,
+        H: Send + Sync + 'static + Fn(Request<S>, WebSocketSender, WebSocketReceiver) -> F,
         F: Future<Output = Result<()>> + Send + 'static,
     {
         self.method(Method::GET, crate::ws::endpoint(handler));

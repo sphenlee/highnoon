@@ -18,8 +18,8 @@ use tracing::trace;
 #[derive(Debug)]
 pub struct WsEndpoint<H, F, S>
 where
-    S: Send + Sync + 'static,
-    H: Send + Sync + 'static + Fn(WebSocketSender, WebSocketReceiver) -> F,
+    S: State + Send + Sync + 'static,
+    H: Send + Sync + 'static + Fn(Request<S>, WebSocketSender, WebSocketReceiver) -> F,
     F: Future<Output = Result<()>> + Send + 'static,
 {
     handler: Arc<H>,
@@ -30,8 +30,8 @@ where
 /// Typically called by the `Route::ws` method.
 pub fn endpoint<H, F, S>(handler: H) -> WsEndpoint<H, F, S>
 where
-    S: Send + Sync + 'static,
-    H: Send + Sync + 'static + Fn(WebSocketSender, WebSocketReceiver) -> F,
+    S: State + Send + Sync + 'static,
+    H: Send + Sync + 'static + Fn(Request<S>, WebSocketSender, WebSocketReceiver) -> F,
     F: Future<Output = Result<()>> + Send + 'static,
 {
     WsEndpoint {
@@ -44,7 +44,7 @@ where
 impl<H, F, S> Endpoint<S> for WsEndpoint<H, F, S>
 where
     S: State,
-    H: Send + Sync + 'static + Fn(WebSocketSender, WebSocketReceiver) -> F,
+    H: Send + Sync + 'static + Fn(Request<S>, WebSocketSender, WebSocketReceiver) -> F,
     F: Future<Output = Result<()>> + Send + 'static,
 {
     async fn call(&self, req: Request<S>) -> Result<Response> {
@@ -56,10 +56,10 @@ where
     }
 }
 
-async fn upgrade_connection<S, H, F>(req: Request<S>, handler: Arc<H>) -> Response
+async fn upgrade_connection<S, H, F>(mut req: Request<S>, handler: Arc<H>) -> Response
 where
     S: State,
-    H: Send + Sync + 'static + Fn(WebSocketSender, WebSocketReceiver) -> F,
+    H: Send + Sync + 'static + Fn(Request<S>, WebSocketSender, WebSocketReceiver) -> F,
     F: Future<Output = Result<()>> + Send + 'static,
 {
     // TODO - check various headers
@@ -93,7 +93,7 @@ where
     trace!("upgrading connection to websocket");
 
     tokio::spawn(async move {
-        let upgraded = hyper::upgrade::on(req.into_inner())
+        let upgraded = hyper::upgrade::on(req.as_inner_mut())
             .await
             .expect("websocket upgrade failed - TODO report this error");
 
@@ -105,11 +105,17 @@ where
         .await;
 
         let (tx, rx) = ws.split();
-        let _ = (handler)(
+        let res = (handler)(
+            req,
             WebSocketSender { inner: tx },
             WebSocketReceiver { inner: rx },
         )
         .await;
+
+        match res {
+            Ok(()) => trace!("websocket handler returned"),
+            Err(e) => trace!("websocket handler returned an error: {}", e),
+        };
     });
 
     res

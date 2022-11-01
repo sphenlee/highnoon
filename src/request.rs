@@ -128,8 +128,8 @@ impl<S: State> Request<S> {
         Ok(self.inner.body_mut())
     }
 
-    pub(crate) fn into_inner(self) -> hyper::Request<Body> {
-        self.inner
+    pub(crate) fn as_inner_mut(&mut self) -> &mut hyper::Request<Body> {
+        &mut self.inner
     }
 
     /// Get a reader to read the request body
